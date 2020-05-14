@@ -1,0 +1,31 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+  name: bugzilla-operator
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: bugzilla-operator:latest
+  postCommit: {}
+  resources: {}
+  source:
+    git:
+      uri: https://github.com/mfojtik/bugzilla-operator.git
+    type: Git
+  strategy:
+    dockerStrategy:
+      from:
+        kind: ImageStreamTag
+        name: fedora:32
+        namespace: sttts
+    type: Docker
+  triggers:
+    - github:
+        secretReference:
+          name: "github-trigger"
+      type: GitHub
+    - type: ConfigChange
+    - imageChange: {}
+      type: ImageChange
