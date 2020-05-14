@@ -50,3 +50,8 @@ staleBugComment: >
   If you have further information on the current state of the bug, please update it, otherwise this bug can be closed in about 7 days. The information can be, for example, that the problem still occurs,
   that you still want the feature, that more information is needed, or that the bug is (for whatever reason) no longer relevant.
 ```
+
+License
+-------
+
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/).
