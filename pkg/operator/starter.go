@@ -19,7 +19,7 @@ func anonymizeConfig(in *config.OperatorConfig) config.OperatorConfig {
 }
 
 func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
-	klog.Info("Starting Operator\nConfig: %s\n", spew.Sdump(anonymizeConfig(&operatorConfig)))
+	klog.Infof("Starting Operator\nConfig: %s\n", spew.Sdump(anonymizeConfig(&operatorConfig)))
 
 	recorder := events.NewLoggingEventRecorder("BugzillaStaleBugs")
 
