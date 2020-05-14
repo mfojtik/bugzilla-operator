@@ -10,17 +10,9 @@ import (
 	"k8s.io/klog"
 
 	"github.com/eparis/bugzilla"
+
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 )
-
-var commentBody = `
-This bug hasn't had any activity in the last 30 days. Maybe the problem got resolved, was a duplicate of something else, or became less pressing for some reason - or maybe it's still relevant but just hasn't been looked at yet.
-
-As such, we're marking this bug as "LifecycleStale" and decreasing the severity/priority. 
-
-If you have further information on the current state of the bug, please update it, otherwise this bug can be closed in about 7 days. The information can be, for example, that the problem still occurs, 
-that you still want the feature, that more information is needed, or that the bug is (for whatever reason) no longer relevant.
-`
 
 type StaleController struct {
 	config config.OperatorConfig
@@ -35,8 +27,8 @@ func NewStaleController(operatorConfig config.OperatorConfig, recorder events.Re
 
 func (c *StaleController) newClient() bugzilla.Client {
 	return bugzilla.NewClient(func() []byte {
-		return []byte(c.config.Credentials.APIKey)
-	}, "https://bugzilla.redhat.com").WithCGIClient(c.config.Credentials.Username, c.config.Credentials.Password)
+		return []byte(c.config.Credentials.DecodedAPIKey())
+	}, "https://bugzilla.redhat.com").WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -86,6 +78,7 @@ func trunc(in string) string {
 }
 
 // degrade transition Priority and Severity fields one level down
+// TODO: move this to config
 func degrade(in string) string {
 	switch in {
 	case "unspecified":
