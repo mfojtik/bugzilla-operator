@@ -1,3 +1,5 @@
+![Go](https://github.com/mfojtik/bugzilla-operator/workflows/Go/badge.svg)
+
 ### Bugzilla Operator
 
 Operator that automate Bugzilla workflow for OpenShift engineering team.
