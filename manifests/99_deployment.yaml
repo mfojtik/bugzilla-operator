@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: bugzilla-operator
+  name: bugzilla-operator
+  labels:
+    app: bugzilla-operator
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: bugzilla-operator
+  template:
+    metadata:
+      name: bugzilla-operator
+      labels:
+        app: bugzilla-operator
+    spec:
+      volumes:
+        - name: config
+          configMap:
+            name: operator-config
+            optional: true
+      containers:
+        - name: operator
+          terminationMessagePolicy: FallbackToLogsOnError
+          image: quay.io/mfojtik/bugzilla-operator:dev
+          imagePullPolicy: IfNotPresent
+          command: ["bugzilla-operator", "run", "--config", "/var/run/operator-config/config.yaml"]
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+          volumeMounts:
+            - mountPath: /var/run/operator-config
+              name: config
+

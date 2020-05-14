@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/description: "An operator that automate bugzilla workflows for OpenShift teams"
+    openshift.io/display-name: "bugzilla operator"
+  name: bugzilla-operator
+spec:
+  finalizers:
+    - kubernetes
