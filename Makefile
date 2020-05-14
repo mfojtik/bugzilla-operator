@@ -12,6 +12,15 @@ IMAGE_REGISTRY?=quay.io
 
 $(call build-image,bugzilla-operator,$(IMAGE_REGISTRY)/mfojtik/bugzilla-operator:dev,./Dockerfile,.)
 
+install:
+	kubectl apply -f ./manifests
+	# You must provide Bugzilla credentials via: kubectl edit configmap/operator-config"
+.PHONY: install
+
+uninstall:
+	kubectl delete namespace/bugzilla-operator
+.PHONY: uninstall
+
 clean:
 	$(RM) ./bugzilla-operator
 .PHONY: clean
