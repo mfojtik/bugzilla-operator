@@ -34,23 +34,35 @@ make install
 The operator is configured via YAML configuration file you have to pass via the bugzilla-operator run --config flag.
 The operator automatically restart when this config is changed. The config is available via `configmap/operator-config`.
 
-Example:
+##### Example:
 
 ```yaml
 ---
 credentials:
-  username: # REQUIRED (can be obfuscated via base64:STRING)
+  username: # REQUIRED (use 'base64:STRING' to obfuscate)
   password: # REQUIRED
-  apiKey:   # REQUIRED
+  apiKey: # REQUIRED
 lists:
-  staleListName: # Bugzilla saved search name (eg. "openshift-stale-bug-list")
-  sharerID: # Bugzilla sharer ID (numberic, visible in saved search link)
-devWhiteboardFlag: # Keyword to flag bugs matching the stale criteria (eg. "LifecycleStale")
-staleBugComment: > 
-  This bug hasn't had any activity in the last 30 days. Maybe the problem got resolved, was a duplicate of something else, or became less pressing for some reason - or maybe it's still relevant but just hasn't been looked at yet.
-  As such, we're marking this bug as "LifecycleStale" and decreasing the severity/priority.
-  If you have further information on the current state of the bug, please update it, otherwise this bug can be closed in about 7 days. The information can be, for example, that the problem still occurs,
-  that you still want the feature, that more information is needed, or that the bug is (for whatever reason) no longer relevant.
+  stale:
+    name: openshift-group-b-stale
+    sharerID: 290313
+    action:
+      addKeyword: LifecycleStale
+      priorityTransitions:
+        - from: high
+          to: medium
+        - from: medium
+          to: low
+      severityTransitions:
+        - from: high
+          to: medium
+        - from: medium
+          to: low
+      addComment: >
+        This bug hasn't had any activity in the last 30 days. Maybe the problem got resolved, was a duplicate of something else, or became less pressing for some reason - or maybe it's still relevant but just hasn't been looked at yet.
+        As such, we're marking this bug as "LifecycleStale" and decreasing the severity/priority.
+        If you have further information on the current state of the bug, please update it, otherwise this bug can be closed in about 7 days. The information can be, for example, that the problem still occurs,
+        that you still want the feature, that more information is needed, or that the bug is (for whatever reason) no longer relevant.
 ```
 
 License
