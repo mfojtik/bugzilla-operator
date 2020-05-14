@@ -21,6 +21,10 @@ uninstall:
 	kubectl delete namespace/bugzilla-operator
 .PHONY: uninstall
 
+push:
+	docker push quay.io/mfojtik/bugzilla-operator:dev
+.PHONY: push
+
 clean:
 	$(RM) ./bugzilla-operator
 .PHONY: clean
