@@ -167,7 +167,7 @@ func TestNewStaleController(t *testing.T) {
 					},
 				}},
 			}
-			gotUpdate, err := c.handleBug(client, test.bug)
+			gotUpdate, _, err := c.handleBug(client, test.bug)
 			if err != nil {
 				t.Errorf("got unexpected error: %v", err)
 			}

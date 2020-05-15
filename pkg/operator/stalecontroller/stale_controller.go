@@ -13,6 +13,7 @@ import (
 
 	"github.com/eparis/bugzilla"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
@@ -43,11 +44,11 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 	if err != nil {
 		return nil, nil, err
 	}
-	klog.Infof("#%d (S:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Creator, bugInfo.AssignedTo, trunc(bug.Summary))
+	klog.Infof("#%d (S:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Creator, bugInfo.AssignedTo, bug.Summary)
 	bugUpdate := bugzilla.BugUpdate{
 		DevWhiteboard: c.config.Lists.Stale.Action.AddKeyword,
 	}
-	needInfoPerson := []string{}
+	var needInfoPerson []string
 	if c.config.Lists.Stale.Action.NeedInfoFromCreator {
 		needInfoPerson = append(needInfoPerson, bugInfo.Creator)
 	}
@@ -77,23 +78,6 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 	return &bugUpdate, bugInfo, nil
 }
 
-func parsePrio(in string) string {
-	switch in {
-	case "urgent":
-		return ":warning:*urgent*"
-	case "high":
-		return "*high*"
-	case "low":
-		return "low"
-	default:
-		return "unknown"
-	}
-}
-
-func formatBug(b bugzilla.Bug) string {
-	return fmt.Sprintf("> <https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d> [*%s*] %s (_%s/%s_)", b.ID, b.ID, b.Status, b.Summary, parsePrio(b.Priority), parsePrio(b.Severity))
-}
-
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newClient()
 	staleBugs, err := client.BugList(c.config.Lists.Stale.Name, c.config.Lists.Stale.SharerID)
@@ -116,7 +100,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if err := client.UpdateBug(bug.ID, *bugUpdate); err != nil {
 			errors = append(errors, err)
 		}
-		notifications[bugInfo.AssignedTo] = append(notifications[bugInfo.AssignedTo], formatBug(*bugInfo))
+		notifications[bugInfo.AssignedTo] = append(notifications[bugInfo.AssignedTo], bugutil.FormatBugMessage(*bugInfo))
 	}
 
 	for target, messages := range notifications {
@@ -131,13 +115,6 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	return errutil.NewAggregate(errors)
-}
-
-func trunc(in string) string {
-	if len(in) >= 120 {
-		return in[0:120] + "..."
-	}
-	return in
 }
 
 // degrade transition Priority and Severity fields one level down
