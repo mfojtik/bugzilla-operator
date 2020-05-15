@@ -150,10 +150,14 @@ func getEmail(person string) string {
 func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]string) {
 	messages := []string{}
 	for person, b := range blockers {
-		messages = append(messages, fmt.Sprintf("> %s: %d blockers", person, len(b)))
+		if len(b) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d blockers", person, len(b)))
+		}
 	}
 	for person, b := range triage {
-		messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
+		if len(b) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
+		}
 	}
 	c.slackClient.MessageEmail(c.config.SlackUserEmail, strings.Join(messages, "\n"))
 }
