@@ -2,10 +2,10 @@ package stalecontroller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	errutil "k8s.io/apimachinery/pkg/util/errors"
@@ -14,17 +14,20 @@ import (
 	"github.com/eparis/bugzilla"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type StaleController struct {
-	config config.OperatorConfig
+	config      config.OperatorConfig
+	slackClient slack.Client
 }
 
-func NewStaleController(operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+func NewStaleController(operatorConfig config.OperatorConfig, slackClient slack.Client, recorder events.Recorder) factory.Controller {
 	c := &StaleController{
-		config: operatorConfig,
+		config:      operatorConfig,
+		slackClient: slackClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
 }
@@ -35,10 +38,10 @@ func (c *StaleController) newClient() bugzilla.Client {
 	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
 }
 
-func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*bugzilla.BugUpdate, error) {
+func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
 	bugInfo, err := client.GetBug(bug.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	klog.Infof("#%d (S:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Creator, bugInfo.AssignedTo, trunc(bug.Summary))
 	bugUpdate := bugzilla.BugUpdate{
@@ -71,8 +74,24 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 			Body: c.config.Lists.Stale.Action.AddComment,
 		}
 	}
-	return &bugUpdate, nil
+	return &bugUpdate, bugInfo, nil
+}
 
+func parsePrio(in string) string {
+	switch in {
+	case "urgent":
+		return ":warning:*urgent*"
+	case "high":
+		return "*high*"
+	case "low":
+		return "low"
+	default:
+		return "unknown"
+	}
+}
+
+func formatBug(b bugzilla.Bug) string {
+	return fmt.Sprintf("> <https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d> [*%s*] %s (_%s/%s_)", b.ID, b.ID, b.Status, b.Summary, parsePrio(b.Priority), parsePrio(b.Severity))
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -84,9 +103,12 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	var errors []error
+
 	klog.Infof("Received %d stale bugs", len(staleBugs))
+	notifications := map[string][]string{}
+
 	for _, bug := range staleBugs {
-		bugUpdate, err := c.handleBug(client, bug)
+		bugUpdate, bugInfo, err := c.handleBug(client, bug)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -94,7 +116,18 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if err := client.UpdateBug(bug.ID, *bugUpdate); err != nil {
 			errors = append(errors, err)
 		}
-		klog.Infof("#%d updated: %s", bug.ID, spew.Sdump(bugUpdate))
+		notifications[bugInfo.AssignedTo] = append(notifications[bugInfo.AssignedTo], formatBug(*bugInfo))
+	}
+
+	for target, messages := range notifications {
+		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
+			strings.Join(messages, "\n"))
+
+		if err := c.slackClient.MessageEmail(target, message); err != nil {
+			syncCtx.Recorder().Warningf("MessageFailed", fmt.Sprintf("Message to %q failed to send: %v", target, err))
+		}
+
+		syncCtx.Recorder().Eventf("StaleBugNotified", message)
 	}
 
 	return errutil.NewAggregate(errors)

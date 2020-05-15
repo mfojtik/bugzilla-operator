@@ -5,10 +5,11 @@ import (
 	"strings"
 )
 
-type BugzillaCredentials struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	APIKey   string `yaml:"apiKey"`
+type Credentials struct {
+	Username   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	APIKey     string `yaml:"apiKey"`
+	SlackToken string `yaml:"slackToken"`
 }
 
 type BugzillaList struct {
@@ -36,8 +37,14 @@ type Transition struct {
 }
 
 type OperatorConfig struct {
-	Credentials BugzillaCredentials `yaml:"credentials"`
-	Lists       BugzillaLists       `yaml:"lists"`
+	Credentials Credentials   `yaml:"credentials"`
+	Lists       BugzillaLists `yaml:"lists"`
+
+	// SlackChannel is a channel where the operator will post reports/etc.
+	SlackChannel string `yaml:"slackChannel"`
+
+	// SlackUserEmail represents a Slack user email the events will be sent to
+	SlackUserEmail string `yaml:"slackUserEmail"`
 }
 
 // Anonymize makes a shallow copy of the config, suitable for dumping in logs (no sensitive data)
@@ -67,16 +74,20 @@ func decode(s string) string {
 }
 
 // DecodedAPIKey return decoded APIKey (in case it was base64 encoded)
-func (b BugzillaCredentials) DecodedAPIKey() string {
+func (b Credentials) DecodedAPIKey() string {
 	return decode(b.APIKey)
 }
 
 // DecodedAPIKey return decoded Password (in case it was base64 encoded)
-func (b BugzillaCredentials) DecodedPassword() string {
+func (b Credentials) DecodedPassword() string {
 	return decode(b.Password)
 }
 
 // DecodedAPIKey return decoded Username (in case it was base64 encoded)
-func (b BugzillaCredentials) DecodedUsername() string {
+func (b Credentials) DecodedUsername() string {
 	return decode(b.Username)
+}
+
+func (b Credentials) DecodedSlackToken() string {
+	return decode(b.SlackToken)
 }

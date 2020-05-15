@@ -8,22 +8,22 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
-
-	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 func anonymizeConfig(in *config.OperatorConfig) config.OperatorConfig {
 	out := *in
-	out.Credentials = config.BugzillaCredentials{}
+	out.Credentials = config.Credentials{}
 	return out
 }
 
 func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	klog.Infof("Starting Operator\nConfig: %s\n", spew.Sdump(anonymizeConfig(&operatorConfig)))
 
-	recorder := events.NewLoggingEventRecorder("BugzillaStaleBugs")
+	slackClient := slack.NewClient(operatorConfig.SlackChannel, operatorConfig.Credentials.DecodedSlackToken())
+	recorder := slack.NewRecorder(slackClient, "BugzillaOperator", operatorConfig.SlackChannel)
 
-	staleController := stalecontroller.NewStaleController(operatorConfig, recorder)
+	staleController := stalecontroller.NewStaleController(operatorConfig, slackClient, recorder)
 	go staleController.Run(ctx, 1)
 
 	<-ctx.Done()
