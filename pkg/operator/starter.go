@@ -21,9 +21,9 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	klog.Infof("Starting Operator\nConfig: %s\n", spew.Sdump(anonymizeConfig(&operatorConfig)))
 
 	slackClient := slack.NewClient(operatorConfig.SlackChannel, operatorConfig.Credentials.DecodedSlackToken())
-	recorder := slack.NewRecorder(slackClient, "BugzillaOperator", operatorConfig.SlackChannel)
+	recorder := slack.NewRecorder(slackClient, "BugzillaOperator", operatorConfig.SlackUserEmail)
 
-	recorder.Event("OperatorStarted", "Bugzilla Operator Starter")
+	recorder.Event("OperatorStarted", "Bugzilla Operator Started")
 
 	staleController := stalecontroller.NewStaleController(operatorConfig, slackClient, recorder)
 	go staleController.Run(ctx, 1)
