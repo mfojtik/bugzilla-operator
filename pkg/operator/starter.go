@@ -7,7 +7,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
@@ -25,8 +25,11 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	recorder.Event("OperatorStarted", "Bugzilla Operator Started")
 
-	staleController := stalecontroller.NewStaleController(operatorConfig, slackClient, recorder)
-	go staleController.Run(ctx, 1)
+	//staleController := stalecontroller.NewStaleController(operatorConfig, slackClient, recorder)
+	//go staleController.Run(ctx, 1)
+
+	blockerReporter := blockers.NewBlockersReporter(operatorConfig, slackClient, recorder)
+	go blockerReporter.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil

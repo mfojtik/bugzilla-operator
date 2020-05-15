@@ -42,7 +42,7 @@ func (r *Recorder) Warning(reason, message string) {
 }
 
 func (r *Recorder) Warningf(reason, messageFmt string, args ...interface{}) {
-	r.Warningf(reason, fmt.Sprintf(messageFmt, args...))
+	r.Warning(reason, fmt.Sprintf(messageFmt, args...))
 }
 
 func (r *Recorder) ForComponent(componentName string) events.Recorder {

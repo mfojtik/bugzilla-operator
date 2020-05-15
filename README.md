@@ -39,25 +39,30 @@ The operator automatically restart when this config is changed. The config is av
 ```yaml
 ---
 credentials:
-  username: # REQUIRED (use 'base64:STRING' to obfuscate)
-  password: # REQUIRED
-  apiKey: # REQUIRED
+  username:
+  password:
+  apiKey:
+  slackToken: 
+slackUserEmail: # email of a Slack user the operator will report events
+slackChannel: # channel name where the operator will report stats
+release:
+  currentTargetRelease: 4.5.0 # bugs with this TargetRelease and '---' are considered "blockers"
 lists:
+  blockers:
+    name: openshift-group-b-blockers
+    sharerID: 290313
   stale:
     name: openshift-group-b-stale
     sharerID: 290313
     action:
       addKeyword: LifecycleStale
+      needInfoReporter: true
       priorityTransitions:
         - from: high
           to: medium
         - from: medium
           to: low
       severityTransitions:
-        - from: high
-          to: medium
-        - from: medium
-          to: low
       addComment: >
         This bug hasn't had any activity in the last 30 days. Maybe the problem got resolved, was a duplicate of something else, or became less pressing for some reason - or maybe it's still relevant but just hasn't been looked at yet.
         As such, we're marking this bug as "LifecycleStale" and decreasing the severity/priority.

@@ -16,8 +16,12 @@ func FormatBugMessage(b bugzilla.Bug) string {
 		case "low":
 			return "low"
 		default:
-			return "unknown"
+			return "_" + priority + "_"
 		}
 	}
-	return fmt.Sprintf("> <https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d> [*%s*] %s (_%s/%s_)", b.ID, b.ID, b.Status, b.Summary, format(b.Priority), format(b.Severity))
+	prio := ""
+	if len(b.Priority) > 0 && len(b.Severity) > 0 {
+		prio = fmt.Sprintf(" (%s/%s)", format(b.Severity), format(b.Priority))
+	}
+	return fmt.Sprintf("> <https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d> [*%s*] %s%s", b.ID, b.ID, b.Status, b.Summary, prio)
 }

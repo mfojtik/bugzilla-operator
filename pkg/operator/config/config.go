@@ -28,7 +28,8 @@ type BugAction struct {
 }
 
 type BugzillaLists struct {
-	Stale BugzillaList `yaml:"stale"`
+	Stale    BugzillaList `yaml:"stale"`
+	Blockers BugzillaList `yaml:"blockers"`
 }
 
 type Transition struct {
@@ -36,9 +37,15 @@ type Transition struct {
 	To   string `yaml:"to"`
 }
 
+type BugzillaRelease struct {
+	CurrentTargetRelease string `yaml:"currentTargetRelease"`
+}
+
 type OperatorConfig struct {
 	Credentials Credentials   `yaml:"credentials"`
 	Lists       BugzillaLists `yaml:"lists"`
+
+	Release BugzillaRelease `yaml:"release"`
 
 	// SlackChannel is a channel where the operator will post reports/etc.
 	SlackChannel string `yaml:"slackChannel"`
