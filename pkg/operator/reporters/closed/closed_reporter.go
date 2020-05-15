@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -21,12 +20,12 @@ type BlockersReporter struct {
 	slackClient slack.Client
 }
 
-func NewClosedReporter(operatorConfig config.OperatorConfig, slackClient slack.Client, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.Client, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:      operatorConfig,
 		slackClient: slackClient,
 	}
-	return factory.New().WithSync(c.sync).ResyncEvery(24*time.Hour).ToController("BlockersReporter", recorder)
+	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
 }
 
 func (c *BlockersReporter) newClient() bugzilla.Client {

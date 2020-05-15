@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -38,12 +37,12 @@ const (
 	triageOutro = "\n\nPlease make sure all these have _Severity_ field set and _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(operatorConfig config.OperatorConfig, slackClient slack.Client, recorder events.Recorder) factory.Controller {
+func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.Client, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:      operatorConfig,
 		slackClient: slackClient,
 	}
-	return factory.New().WithSync(c.sync).ResyncEvery(12*time.Hour).ToController("BlockersReporter", recorder)
+	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
 }
 
 func (c *BlockersReporter) newClient() bugzilla.Client {

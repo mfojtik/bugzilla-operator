@@ -180,6 +180,9 @@ func (c *client) BugList(queryName, sharerID string) ([]Bug, error) {
 	}
 	defer res.Body.Close()
 
+	body, _ := ioutil.ReadAll(res.Body)
+	fmt.Printf("%s\n", string(body))
+
 	bugList, err := parseBugzCSV(res.Body)
 
 	if err != nil {
