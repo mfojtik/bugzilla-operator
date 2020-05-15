@@ -18,6 +18,11 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
+var peopleWithWrongSlackEmail = map[string]string{
+	"sttts@redhat.com":     "sschiman@redhat.com",
+	"rphillips@redhat.com": "rphillip@redhat.com",
+}
+
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type BlockersReporter struct {
@@ -49,7 +54,6 @@ func (c *BlockersReporter) newClient() bugzilla.Client {
 
 func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) (blockers []string, needTriage []string) {
 	currentTargetRelease := c.config.Release.CurrentTargetRelease
-
 	count := 0
 	for _, id := range bugIDs {
 		count++
@@ -61,6 +65,7 @@ func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) (blo
 			continue
 		}
 		if len(bug.TargetRelease) == 0 {
+			needTriage = append(needTriage, bugutil.FormatBugMessage(*bug))
 			continue
 		}
 
@@ -113,7 +118,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 			continue
 		}
 		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
-		if err := c.slackClient.MessageEmail(person, message); err != nil {
+		if err := c.slackClient.MessageEmail(getEmail(person), message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
 		}
 	}
@@ -123,7 +128,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 			continue
 		}
 		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(triageIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(triageOutro))
-		if err := c.slackClient.MessageEmail(person, message); err != nil {
+		if err := c.slackClient.MessageEmail(getEmail(person), message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
 		}
 	}
@@ -133,7 +138,29 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
 	}
 
+	// send debug stats
+	c.sendStatsForPeople(peopleBlockerNotificationMap, peopleTriageNotificationMap)
+
 	return nil
+}
+
+func getEmail(person string) string {
+	realEmail, ok := peopleWithWrongSlackEmail[person]
+	if ok {
+		return realEmail
+	}
+	return person
+}
+
+func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]string) {
+	messages := []string{}
+	for person, b := range blockers {
+		messages = append(messages, fmt.Sprintf("> %s: %d blockers", person, len(b)))
+	}
+	for person, b := range triage {
+		messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
+	}
+	c.slackClient.MessageEmail(c.config.SlackUserEmail, strings.Join(messages, ","))
 }
 
 func getStatsForChannel(target string, totalCount int, blockers, triage map[string][]string) []string {

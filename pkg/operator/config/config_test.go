@@ -5,7 +5,7 @@ import (
 )
 
 func TestBugzillaCredentials_Obfuscate(t *testing.T) {
-	c := BugzillaCredentials{
+	c := Credentials{
 		Username: "test",
 		Password: "base64:Zm9v",
 		APIKey:   "",
