@@ -23,6 +23,8 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	slackClient := slack.NewClient(operatorConfig.SlackChannel, operatorConfig.Credentials.DecodedSlackToken())
 	recorder := slack.NewRecorder(slackClient, "BugzillaOperator", operatorConfig.SlackChannel)
 
+	recorder.Event("OperatorStarted", "Bugzilla Operator Starter")
+
 	staleController := stalecontroller.NewStaleController(operatorConfig, slackClient, recorder)
 	go staleController.Run(ctx, 1)
 
