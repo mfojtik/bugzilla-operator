@@ -30,7 +30,7 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	blockerReportSchedule := informer.NewTimeInformer()
 	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
-	blockerReportSchedule.Schedule("CRON_TZ=America/Boston 30 9 1-7,16-23 * 2-4")
+	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
 	go blockerReportSchedule.Start(ctx)
 
 	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackClient, recorder)
@@ -38,7 +38,7 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	closedReportSchedule := informer.NewTimeInformer()
 	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 * * 1-5")
-	closedReportSchedule.Schedule("CRON_TZ=Europe/Boston 30 9 * * 1-5")
+	closedReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 * * 1-5")
 	go closedReportSchedule.Start(ctx)
 
 	closedReporter := closed.NewClosedReporter(operatorConfig, closedReportSchedule, slackClient, recorder)
