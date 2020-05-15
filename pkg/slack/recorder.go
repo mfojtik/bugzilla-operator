@@ -26,7 +26,7 @@ func NewRecorder(client Client, component, user string) events.Recorder {
 func (r *Recorder) Event(reason, message string) {
 	msg := fmt.Sprintf("[_%s#%s_] %s", r.component, reason, message)
 	if err := r.client.MessageEmail(r.targetUserEmail, msg); err != nil {
-		klog.Warningf("Failed to send: %s", msg)
+		klog.Warningf("Failed to send: %s (%v)", msg, err)
 	}
 }
 
@@ -37,7 +37,7 @@ func (r *Recorder) Eventf(reason, messageFmt string, args ...interface{}) {
 func (r *Recorder) Warning(reason, message string) {
 	msg := fmt.Sprintf(":warning: [_%s#%s_] %s", r.component, reason, message)
 	if err := r.client.MessageEmail(r.targetUserEmail, msg); err != nil {
-		klog.Warningf("Failed to send: %s", msg)
+		klog.Warningf("Failed to send: %s (%v)", msg, err)
 	}
 }
 
