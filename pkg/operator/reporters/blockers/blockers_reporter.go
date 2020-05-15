@@ -129,7 +129,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 
 	channelStats := getStatsForChannel(c.config.Release.CurrentTargetRelease, len(blockerBugs), peopleBlockerNotificationMap, peopleTriageNotificationMap)
-	if err := c.slackClient.MessageChannel(fmt.Sprintf("Hi Team!\n\n> *Current Blocker Stats:*\n>\n%s\n", strings.Join(channelStats, "\n"))); err != nil {
+	if err := c.slackClient.MessageChannel(fmt.Sprintf("*Current Blocker Stats:*\n%s\n", strings.Join(channelStats, "\n"))); err != nil {
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
 	}
 

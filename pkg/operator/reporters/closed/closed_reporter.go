@@ -61,7 +61,11 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		message = append(message, fmt.Sprintf("> %d %s closed as _%s_ (%s)", len(bugs), p, resolution, strings.Join(ids, ",")))
 	}
 
-	report := fmt.Sprintf("Bugs Closed in the last 24h:\n%s\n", strings.Join(message, "\n"))
+	if len(closedBugs) == 0 {
+		return nil
+	}
+
+	report := fmt.Sprintf("*%d Bugs Closed in the last 24h*:\n%s\n", len(closedBugs), strings.Join(message, "\n"))
 	if err := c.slackClient.MessageChannel(report); err != nil {
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
 		return err
