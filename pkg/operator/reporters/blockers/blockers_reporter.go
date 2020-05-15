@@ -54,12 +54,7 @@ func (c *BlockersReporter) newClient() bugzilla.Client {
 
 func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) (blockers []string, needTriage []string) {
 	currentTargetRelease := c.config.Release.CurrentTargetRelease
-	count := 0
 	for _, id := range bugIDs {
-		count++
-		if count > 3 {
-			break
-		}
 		bug, err := client.GetBug(id)
 		if err != nil {
 			continue
