@@ -155,7 +155,7 @@ func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]stri
 	for person, b := range triage {
 		messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
 	}
-	c.slackClient.MessageEmail(c.config.SlackUserEmail, strings.Join(messages, ","))
+	c.slackClient.MessageEmail(c.config.SlackUserEmail, strings.Join(messages, "\n"))
 }
 
 func getStatsForChannel(target string, totalCount int, blockers, triage map[string][]string) []string {

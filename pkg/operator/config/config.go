@@ -30,6 +30,7 @@ type BugAction struct {
 type BugzillaLists struct {
 	Stale    BugzillaList `yaml:"stale"`
 	Blockers BugzillaList `yaml:"blockers"`
+	Closed   BugzillaList `yaml:"closed"`
 }
 
 type Transition struct {
