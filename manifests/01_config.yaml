@@ -5,13 +5,16 @@ data:
     slackChannel: group-b-status
     slackUserEmail: mfojtik@redhat.com
     credentials:
-      username:
-      password:
-      apiKey:
+      username: base64:
+      password: base64:
+      apiKey: base64:
       slackToken:
     release:
       currentTargetRelease: 4.5.0
     lists:
+      closed:
+        name: openshift-group-b-closed
+        sharerID: 290313
       blockers:
         name: openshift-group-b-blockers
         sharerID: 290313
