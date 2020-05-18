@@ -108,5 +108,5 @@ func (b Credentials) DecodedSlackToken() string {
 }
 
 func (b Credentials) DecodedSlackVerificationToken() string {
-	return decode(b.SlackToken)
+	return decode(b.SlackVerificationToken)
 }
