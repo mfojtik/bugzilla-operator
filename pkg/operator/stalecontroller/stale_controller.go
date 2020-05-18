@@ -114,7 +114,9 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 	}
 
-	syncCtx.Recorder().Event("StaleBugs", fmt.Sprintf("Following notifications sent:\n%s\n", strings.Join(staleBugLinks, "\n")))
+	if len(notifications) > 0 {
+		syncCtx.Recorder().Event("StaleBugs", fmt.Sprintf("Following notifications sent:\n%s\n", strings.Join(staleBugLinks, "\n")))
+	}
 
 	return errutil.NewAggregate(errors)
 }

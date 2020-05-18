@@ -67,6 +67,9 @@ func (c *OperatorConfig) Anonymize() OperatorConfig {
 	if key := a.Credentials.APIKey; len(key) > 0 {
 		a.Credentials.APIKey = strings.Repeat("x", len(a.Credentials.DecodedAPIKey()))
 	}
+	if key := a.Credentials.SlackToken; len(key) > 0 {
+		a.Credentials.SlackToken = strings.Repeat("x", len(a.Credentials.DecodedSlackToken()))
+	}
 	return a
 }
 
