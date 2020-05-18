@@ -5,9 +5,22 @@ import (
 	"sync"
 
 	"github.com/robfig/cron/v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 )
+
+type CronObject struct {
+}
+
+func (c *CronObject) GetObjectKind() schema.ObjectKind {
+	return schema.EmptyObjectKind
+}
+
+func (c *CronObject) DeepCopyObject() runtime.Object {
+	return c
+}
 
 type TimeInformer struct {
 	c         *cron.Cron
@@ -28,12 +41,11 @@ func (t *TimeInformer) Schedule(schedule string) {
 }
 
 func (t *TimeInformer) Start(ctx context.Context) {
-
 	for _, schedule := range t.schedules {
 		id, err := t.c.AddFunc(schedule, func() {
 			for i := range t.handlers {
 				klog.Infof("Triggering run via cron schedule %q", schedule)
-				t.handlers[i].OnAdd("cron")
+				t.handlers[i].OnAdd(&CronObject{})
 			}
 		})
 		if err != nil {
