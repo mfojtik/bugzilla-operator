@@ -38,18 +38,20 @@ func NewTimeInformer(name string) *TimeInformer {
 	}
 }
 
+func (t *TimeInformer) RunNow() {
+	for i := range t.handlers {
+		klog.Infof("Triggering run of %q", t.name)
+		t.handlers[i].OnAdd(&CronObject{})
+	}
+}
+
 func (t *TimeInformer) Schedule(schedule string) {
 	t.schedules = append(t.schedules, schedule)
 }
 
 func (t *TimeInformer) Start(ctx context.Context) {
 	for _, schedule := range t.schedules {
-		id, err := t.c.AddFunc(schedule, func() {
-			for i := range t.handlers {
-				klog.Infof("Triggering run using %q via schedule %q", t.name, schedule)
-				t.handlers[i].OnAdd(&CronObject{})
-			}
-		})
+		id, err := t.c.AddFunc(schedule, t.RunNow)
 		if err != nil {
 			panic(err)
 		}
