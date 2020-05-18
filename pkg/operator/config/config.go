@@ -6,10 +6,11 @@ import (
 )
 
 type Credentials struct {
-	Username   string `yaml:"username"`
-	Password   string `yaml:"password"`
-	APIKey     string `yaml:"apiKey"`
-	SlackToken string `yaml:"slackToken"`
+	Username               string `yaml:"username"`
+	Password               string `yaml:"password"`
+	APIKey                 string `yaml:"apiKey"`
+	SlackToken             string `yaml:"slackToken"`
+	SlackVerificationToken string `yaml:"slackVerificationToken"`
 }
 
 type BugzillaList struct {
@@ -70,6 +71,9 @@ func (c *OperatorConfig) Anonymize() OperatorConfig {
 	if key := a.Credentials.SlackToken; len(key) > 0 {
 		a.Credentials.SlackToken = strings.Repeat("x", len(a.Credentials.DecodedSlackToken()))
 	}
+	if key := a.Credentials.SlackVerificationToken; len(key) > 0 {
+		a.Credentials.SlackVerificationToken = strings.Repeat("x", len(a.Credentials.DecodedSlackVerificationToken()))
+	}
 	return a
 }
 
@@ -100,5 +104,9 @@ func (b Credentials) DecodedUsername() string {
 }
 
 func (b Credentials) DecodedSlackToken() string {
+	return decode(b.SlackToken)
+}
+
+func (b Credentials) DecodedSlackVerificationToken() string {
 	return decode(b.SlackToken)
 }

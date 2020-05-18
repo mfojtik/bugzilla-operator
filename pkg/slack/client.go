@@ -9,7 +9,7 @@ var peopleWithWrongSlackEmail = map[string]string{
 	"rphillips@redhat.com": "rphillip@redhat.com",
 }
 
-type Client interface {
+type ChannelClient interface {
 	MessageChannel(message string) error
 	MessageEmail(email, message string) error
 }
@@ -45,10 +45,10 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	return err
 }
 
-func NewClient(channel, token string) Client {
+func NewChannelClient(client *slack.Client, channel string) ChannelClient {
 	c := &slackClient{
 		channel: channel,
-		client:  slack.New(token, slack.OptionDebug(true)),
+		client:  client,
 	}
 	return c
 }

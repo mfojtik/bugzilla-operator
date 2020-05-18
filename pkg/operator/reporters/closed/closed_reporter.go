@@ -17,10 +17,10 @@ const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type BlockersReporter struct {
 	config      config.OperatorConfig
-	slackClient slack.Client
+	slackClient slack.ChannelClient
 }
 
-func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.Client, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:      operatorConfig,
 		slackClient: slackClient,

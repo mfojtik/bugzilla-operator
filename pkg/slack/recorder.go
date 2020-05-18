@@ -8,14 +8,14 @@ import (
 )
 
 type Recorder struct {
-	client          Client
+	client          ChannelClient
 	component       string
 	targetUserEmail string
 }
 
 var _ events.Recorder = &Recorder{}
 
-func NewRecorder(client Client, component, user string) events.Recorder {
+func NewRecorder(client ChannelClient, component, user string) events.Recorder {
 	return &Recorder{
 		client:          client,
 		component:       component,
