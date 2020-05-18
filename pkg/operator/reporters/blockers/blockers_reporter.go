@@ -17,11 +17,6 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-var peopleWithWrongSlackEmail = map[string]string{
-	"sttts@redhat.com":     "sschiman@redhat.com",
-	"rphillips@redhat.com": "rphillip@redhat.com",
-}
-
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type BlockersReporter struct {
@@ -112,7 +107,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 			continue
 		}
 		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
-		if err := c.slackClient.MessageEmail(getEmail(person), message); err != nil {
+		if err := c.slackClient.MessageEmail(person, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
 		}
 	}
@@ -122,7 +117,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 			continue
 		}
 		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(triageIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(triageOutro))
-		if err := c.slackClient.MessageEmail(getEmail(person), message); err != nil {
+		if err := c.slackClient.MessageEmail(person, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
 		}
 	}
@@ -136,14 +131,6 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	c.sendStatsForPeople(peopleBlockerNotificationMap, peopleTriageNotificationMap)
 
 	return nil
-}
-
-func getEmail(person string) string {
-	realEmail, ok := peopleWithWrongSlackEmail[person]
-	if ok {
-		return realEmail
-	}
-	return person
 }
 
 func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]string) {
