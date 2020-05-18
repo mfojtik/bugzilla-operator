@@ -59,13 +59,13 @@ type OperatorConfig struct {
 func (c *OperatorConfig) Anonymize() OperatorConfig {
 	a := *c
 	if user := a.Credentials.Username; len(user) > 0 {
-		a.Credentials.Username = "<set>"
+		a.Credentials.Username = strings.Repeat("x", len(a.Credentials.DecodedUsername()))
 	}
 	if password := a.Credentials.Password; len(password) > 0 {
-		a.Credentials.Password = "<set>"
+		a.Credentials.Password = strings.Repeat("x", len(a.Credentials.DecodedPassword()))
 	}
-	if key := a.Credentials.Username; len(key) > 0 {
-		a.Credentials.APIKey = "<set>"
+	if key := a.Credentials.APIKey; len(key) > 0 {
+		a.Credentials.APIKey = strings.Repeat("x", len(a.Credentials.DecodedAPIKey()))
 	}
 	return a
 }

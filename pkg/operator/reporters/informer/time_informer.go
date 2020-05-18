@@ -24,15 +24,17 @@ func (c *CronObject) DeepCopyObject() runtime.Object {
 
 type TimeInformer struct {
 	c         *cron.Cron
+	name      string
 	handlers  []cache.ResourceEventHandler
 	schedules []string
 	started   bool
 	sync.Mutex
 }
 
-func NewTimeInformer() *TimeInformer {
+func NewTimeInformer(name string) *TimeInformer {
 	return &TimeInformer{
-		c: cron.New(),
+		c:    cron.New(),
+		name: name,
 	}
 }
 
@@ -44,14 +46,14 @@ func (t *TimeInformer) Start(ctx context.Context) {
 	for _, schedule := range t.schedules {
 		id, err := t.c.AddFunc(schedule, func() {
 			for i := range t.handlers {
-				klog.Infof("Triggering run via cron schedule %q", schedule)
+				klog.Infof("Triggering run using %q via schedule %q", t.name, schedule)
 				t.handlers[i].OnAdd(&CronObject{})
 			}
 		})
 		if err != nil {
 			panic(err)
 		}
-		klog.Infof("Scheduled controller run #%d: %q", id, schedule)
+		klog.Infof("Scheduled controller %q run #%d: %q", t.name, id, schedule)
 	}
 
 	go t.c.Start()

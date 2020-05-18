@@ -25,11 +25,11 @@ type BlockersReporter struct {
 }
 
 const (
-	blockerIntro = "Hi there!\nIt appears you have %d bugs assigned to you and these bugs are *release blockers*:\n\n"
+	blockerIntro = "Hi there!\nIt appears you have %d bugs assigned to you and these bugs are _%s_ *release blockers*:\n\n"
 	blockerOutro = "\n\nPlease keep eyes on these today!"
 
 	triageIntro = "Hi there!\nI found %d untriaged bugs assigned to you:\n\n"
-	triageOutro = "\n\nPlease make sure all these have _Severity_ field set and _Target Release_ set, so I can stop bothering you :-)\n\n"
+	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
 func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.Client, recorder events.Recorder) factory.Controller {
@@ -60,7 +60,6 @@ func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) (blo
 
 		if bug.Severity == "unspecified" || bug.TargetRelease[0] == "---" {
 			needTriage = append(needTriage, bugutil.FormatBugMessage(*bug))
-			continue
 		}
 
 		if bug.TargetRelease[0] == currentTargetRelease {
@@ -106,7 +105,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		if len(notifications) == 0 {
 			continue
 		}
-		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
+		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications), c.config.Release.CurrentTargetRelease), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
 		if err := c.slackClient.MessageEmail(person, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
 		}

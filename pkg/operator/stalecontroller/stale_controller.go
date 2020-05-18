@@ -91,6 +91,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	klog.Infof("%d stale bugs found", len(staleBugs))
 	notifications := map[string][]string{}
 
+	staleBugLinks := []string{}
 	for _, bug := range staleBugs {
 		bugUpdate, bugInfo, err := c.handleBug(client, bug)
 		if err != nil {
@@ -100,6 +101,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if err := client.UpdateBug(bug.ID, *bugUpdate); err != nil {
 			errors = append(errors, err)
 		}
+		staleBugLinks = append(staleBugLinks, bugutil.FormatBugMessage(*bugInfo))
 		notifications[bugInfo.AssignedTo] = append(notifications[bugInfo.AssignedTo], bugutil.FormatBugMessage(*bugInfo))
 	}
 
@@ -110,9 +112,9 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if err := c.slackClient.MessageEmail(target, message); err != nil {
 			syncCtx.Recorder().Warningf("MessageFailed", fmt.Sprintf("Message to %q failed to send: %v", target, err))
 		}
-
-		syncCtx.Recorder().Eventf("StaleBugNotified", message)
 	}
+
+	syncCtx.Recorder().Event("StaleBugs", fmt.Sprintf("Following notifications sent:\n%s\n", strings.Join(staleBugLinks, "\n")))
 
 	return errutil.NewAggregate(errors)
 }
