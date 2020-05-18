@@ -60,9 +60,7 @@ func (c *bugzillaCGIClient) setBugzillaLoginCookie(loginURL string) (err error) 
 
 	res, err := c.httpClient.Do(req)
 	defer func() {
-		if res != nil && res.Body != nil {
-			res.Body.Close()
-		}
+		closeBody(res)
 	}()
 
 	if err != nil {
@@ -83,9 +81,7 @@ func (c *bugzillaCGIClient) getBugzillaLoginToken(loginURL string) (loginToken s
 
 	res, err := c.httpClient.Do(req)
 	defer func() {
-		if res != nil && res.Body != nil {
-			res.Body.Close()
-		}
+		defer closeBody(res)
 	}()
 	if err != nil {
 		if strings.Contains(err.Error(), "use of closed network connection") {
@@ -140,11 +136,7 @@ func (c *bugzillaCGIClient) login() (err error) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := c.httpClient.Do(req)
-	defer func() {
-		if res != nil && res.Body != nil {
-			res.Body.Close()
-		}
-	}()
+	defer closeBody(res)
 	if err != nil {
 		if strings.Contains(err.Error(), "use of closed network connection") {
 			return fmt.Errorf("timeout occured while accessing %v", loginURL)
@@ -169,12 +161,20 @@ func (c *bugzillaCGIClient) SetCookies(cookies []*http.Cookie) {
 	c.httpClient.Jar.SetCookies(u, cookies)
 }
 
+func closeBody(r *http.Response) {
+	if r != nil && r.Body != nil {
+		if err := r.Body.Close(); err != nil {
+			log.Printf("Failed to close body: %v", err)
+		}
+	}
+}
+
 func (c *bugzillaCGIClient) authenticated(f func() (*http.Response, error)) (*http.Response, error) {
 	res, err := f()
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer closeBody(res)
 	bs, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
