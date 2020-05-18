@@ -42,6 +42,7 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
 	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
+
 	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
 	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
 	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackChannelClient, recorder)
@@ -51,6 +52,20 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 * * 1-5")
 	closedReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 * * 1-5")
 	closedReporter := closed.NewClosedReporter(operatorConfig, closedReportSchedule, slackChannelClient, recorder)
+
+	// report command allow to manually trigger a reporter to run out of its normal schedule
+	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
+		Description: "Trigger a job to run.",
+		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
+			msg := req.StringParam("job", "")
+			switch msg {
+			case "blocker-bugs":
+				blockerReportSchedule.RunNow()
+			case "closed-bugs":
+				closedReportSchedule.RunNow()
+			}
+		},
+	})
 
 	go blockerReportSchedule.Start(ctx)
 	go blockerReporter.Run(ctx, 1)
