@@ -44,7 +44,7 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 	if err != nil {
 		return nil, nil, err
 	}
-	klog.Infof("#%d (S:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Creator, bugInfo.AssignedTo, bug.Summary)
+	klog.Infof("#%d (S:%s, P:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Priority, bugInfo.Creator, bugInfo.AssignedTo, bug.Summary)
 	bugUpdate := bugzilla.BugUpdate{
 		DevWhiteboard: c.config.Lists.Stale.Action.AddKeyword,
 	}
@@ -65,10 +65,10 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 		bugUpdate.Flags = flags
 	}
 	if transitions := c.config.Lists.Stale.Action.PriorityTransitions; len(transitions) > 0 {
-		bugUpdate.Priority = degrade(transitions, bug.Priority)
+		bugUpdate.Priority = degrade(transitions, bugInfo.Priority)
 	}
 	if transitions := c.config.Lists.Stale.Action.SeverityTransitions; len(transitions) > 0 {
-		bugUpdate.Severity = degrade(transitions, bug.Severity)
+		bugUpdate.Severity = degrade(transitions, bugInfo.Severity)
 	}
 	if len(c.config.Lists.Stale.Action.AddComment) > 0 {
 		bugUpdate.Comment = &bugzilla.BugComment{
@@ -88,7 +88,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 	var errors []error
 
-	klog.Infof("Received %d stale bugs", len(staleBugs))
+	klog.Infof("%d stale bugs found", len(staleBugs))
 	notifications := map[string][]string{}
 
 	for _, bug := range staleBugs {
