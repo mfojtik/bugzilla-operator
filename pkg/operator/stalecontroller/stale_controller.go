@@ -22,10 +22,10 @@ const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type StaleController struct {
 	config      config.OperatorConfig
-	slackClient slack.Client
+	slackClient slack.ChannelClient
 }
 
-func NewStaleController(operatorConfig config.OperatorConfig, slackClient slack.Client, recorder events.Recorder) factory.Controller {
+func NewStaleController(operatorConfig config.OperatorConfig, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &StaleController{
 		config:      operatorConfig,
 		slackClient: slackClient,
