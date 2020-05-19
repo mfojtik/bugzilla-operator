@@ -19,14 +19,16 @@ import (
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type CloseStaleController struct {
-	config      config.OperatorConfig
-	slackClient slack.ChannelClient
+	config config.OperatorConfig
+
+	slackClient, slackDebugClient slack.ChannelClient
 }
 
-func NewCloseStaleController(operatorConfig config.OperatorConfig, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewCloseStaleController(operatorConfig config.OperatorConfig, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &CloseStaleController{
-		config:      operatorConfig,
-		slackClient: slackClient,
+		config:           operatorConfig,
+		slackClient:      slackClient,
+		slackDebugClient: slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("CloseStaleController", recorder)
 }
@@ -83,7 +85,7 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 
 	// Notify admin
 	if len(closedBugLinks) > 0 {
-		c.slackClient.MessageEmail(c.config.SlackUserEmail, fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ",")))
+		c.slackDebugClient.MessageChannel(fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ",")))
 	}
 
 	return errorutil.NewAggregate(errors)

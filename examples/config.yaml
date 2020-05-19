@@ -3,7 +3,7 @@ credentials:
   username:
   password:
   apiKey:
-slackUserEmail: mfojtik@redhat.com
+slackAdminChannel: group-b-bots
 slackChannel: group-b-status
 release:
   currentTargetRelease: 4.5.0

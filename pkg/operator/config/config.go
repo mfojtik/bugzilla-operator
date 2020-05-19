@@ -60,10 +60,8 @@ type OperatorConfig struct {
 	Release BugzillaRelease `yaml:"release"`
 
 	// SlackChannel is a channel where the operator will post reports/etc.
-	SlackChannel string `yaml:"slackChannel"`
-
-	// SlackUserEmail represents a Slack user email the events will be sent to
-	SlackUserEmail string `yaml:"slackUserEmail"`
+	SlackChannel      string `yaml:"slackChannel"`
+	SlackAdminChannel string `yaml:"slackAdminChannel"`
 }
 
 // Anonymize makes a shallow copy of the config, suitable for dumping in logs (no sensitive data)
