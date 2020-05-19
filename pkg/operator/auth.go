@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
@@ -17,6 +18,9 @@ func auth(cfg config.OperatorConfig, handler func(req slacker.Request, w slacker
 
 	return func(req slacker.Request, w slacker.ResponseWriter) {
 		if !users.Has(req.Event().Username) {
+			// DEBUG
+			klog.Infof("%#v", req.Event())
+
 			w.Reply("Permission denied")
 		}
 	}
