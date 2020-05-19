@@ -6,6 +6,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	slackgo "github.com/slack-go/slack"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
@@ -18,6 +19,10 @@ import (
 func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	slackClient := slackgo.New(operatorConfig.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 	slackChannelClient := slack.NewChannelClient(slackClient, operatorConfig.SlackChannel)
+
+	// This slack client is used for debugging
+	stagingSlackChannelClient := slack.NewChannelClient(slackClient, "group-b-bots")
+
 	recorder := slack.NewRecorder(slackChannelClient, "BugzillaOperator", operatorConfig.SlackUserEmail)
 
 	slackerInstance := slacker.NewSlacker(slackClient, slacker.Options{
@@ -39,6 +44,9 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
 	staleController := stalecontroller.NewStaleController(operatorConfig, slackChannelClient, recorder)
+
+	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
+	closeStaleController := closecontroller.NewCloseStaleController(operatorConfig, stagingSlackChannelClient, recorder)
 
 	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
 	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
@@ -72,6 +80,7 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	go closedReportSchedule.Start(ctx)
 	go closedReporter.Run(ctx, 1)
 	go staleController.Run(ctx, 1)
+	go closeStaleController.Run(ctx, 1)
 	go slackerInstance.Run(ctx)
 
 	<-ctx.Done()
