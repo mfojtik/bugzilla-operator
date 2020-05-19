@@ -48,28 +48,46 @@ func (c *BlockersReporter) newClient() bugzilla.Client {
 	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
 }
 
-func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) (blockers []string, needTriage []string) {
+type triageResult struct {
+	blockers       []string
+	needTriage     []string
+	upcomingSprint []string
+}
+
+func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) triageResult {
 	currentTargetRelease := c.config.Release.CurrentTargetRelease
+	r := triageResult{}
 	for _, id := range bugIDs {
 		bug, err := client.GetBug(id)
 		if err != nil {
 			continue
 		}
+		keywords := sets.NewString(bug.Keywords...)
+		if keywords.Has("UpcomingSprint") {
+			r.upcomingSprint = append(r.upcomingSprint, bugutil.FormatBugMessage(*bug))
+		}
 		if len(bug.TargetRelease) == 0 {
-			needTriage = append(needTriage, bugutil.FormatBugMessage(*bug))
+			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
 			continue
 		}
 
 		if bug.Severity == "unspecified" || bug.TargetRelease[0] == "---" {
-			needTriage = append(needTriage, bugutil.FormatBugMessage(*bug))
+			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
 		}
 
 		if bug.TargetRelease[0] == currentTargetRelease {
-			blockers = append(blockers, bugutil.FormatBugMessage(*bug))
+			r.blockers = append(r.blockers, bugutil.FormatBugMessage(*bug))
 		}
 	}
 
-	return
+	return r
+}
+
+type notificationMap struct {
+	blockers       map[string][]string
+	triage         map[string][]string
+	upcomingSprint map[string][]string
+	sync.Mutex
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -89,21 +107,28 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		peopleBugsMap[b.AssignedTo] = append(peopleBugsMap[b.AssignedTo], b.ID)
 	}
 
-	peopleBlockerNotificationMap := map[string][]string{}
-	peopleTriageNotificationMap := map[string][]string{}
+	triageResult := &notificationMap{
+		blockers:       make(map[string][]string),
+		triage:         make(map[string][]string),
+		upcomingSprint: make(map[string][]string),
+	}
+
 	var wg sync.WaitGroup
 	for person, bugIDs := range peopleBugsMap {
 		wg.Add(1)
 		go func(person string, ids []int) {
 			defer wg.Done()
-			blocker, triage := c.triageBug(client, ids...)
-			peopleBlockerNotificationMap[person] = blocker
-			peopleTriageNotificationMap[person] = triage
+			result := c.triageBug(client, ids...)
+			triageResult.Lock()
+			defer triageResult.Unlock()
+			triageResult.blockers[person] = result.blockers
+			triageResult.triage[person] = result.needTriage
+			triageResult.upcomingSprint[person] = result.upcomingSprint
 		}(person, bugIDs)
 	}
 	wg.Wait()
 
-	for person, notifications := range peopleBlockerNotificationMap {
+	for person, notifications := range triageResult.blockers {
 		if len(notifications) == 0 {
 			continue
 		}
@@ -113,7 +138,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		}
 	}
 
-	for person, notifications := range peopleTriageNotificationMap {
+	for person, notifications := range triageResult.triage {
 		if len(notifications) == 0 {
 			continue
 		}
@@ -123,19 +148,19 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		}
 	}
 
-	channelStats := getStatsForChannel(c.config.Release.CurrentTargetRelease, len(blockerBugs), peopleBlockerNotificationMap, peopleTriageNotificationMap)
+	channelStats := getStatsForChannel(c.config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
 	if err := c.slackClient.MessageChannel(fmt.Sprintf("*Current Blocker Stats:*\n%s\n", strings.Join(channelStats, "\n"))); err != nil {
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
 	}
 
 	// send debug stats
-	c.sendStatsForPeople(peopleBlockerNotificationMap, peopleTriageNotificationMap)
+	c.sendStatsForPeople(triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
 
 	return nil
 }
 
-func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]string) {
-	messages := []string{}
+func (c *BlockersReporter) sendStatsForPeople(blockers, triage, upcomingSprint map[string][]string) {
+	var messages []string
 	for person, b := range blockers {
 		if len(b) > 0 {
 			messages = append(messages, fmt.Sprintf("> %s: %d blockers", person, len(b)))
@@ -146,10 +171,15 @@ func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]stri
 			messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
 		}
 	}
+	for person, b := range upcomingSprint {
+		if len(b) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d to apply _UpcomingSprint_", person, len(b)))
+		}
+	}
 	c.slackDebugClient.MessageChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(target string, totalCount int, blockers, triage map[string][]string) []string {
+func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, upcomingSprint map[string][]string) []string {
 	totalTriageCount := 0
 	for p := range triage {
 		totalTriageCount += len(triage[p])
@@ -158,9 +188,15 @@ func getStatsForChannel(target string, totalCount int, blockers, triage map[stri
 	for p := range blockers {
 		totalTargetBlockerCount += len(blockers[p])
 	}
+	needUpcomingSprint := totalCount - len(upcomingSprint)
+	// we can have bug here :-)
+	if needUpcomingSprint < 0 {
+		needUpcomingSprint = 0
+	}
 	return []string{
-		fmt.Sprintf("> <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|Total Blocker Bug Count>: *%d*", totalCount),
-		fmt.Sprintf("> %s Blocker Count: *%d*", target, totalTargetBlockerCount),
-		fmt.Sprintf("> <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|Bugs Need Triage>:    *%d*", totalTriageCount),
+		fmt.Sprintf("> All Blocker Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|%d>", totalCount),
+		fmt.Sprintf("> %s Blocker Count: *%d*", targetRelease, totalTargetBlockerCount),
+		fmt.Sprintf("> Need _UpcomingSprint_ keyword: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
+		fmt.Sprintf("> Blockers Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
 	}
 }

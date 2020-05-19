@@ -18,12 +18,15 @@ import (
 
 func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	slackClient := slackgo.New(operatorConfig.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
-	slackChannelClient := slack.NewChannelClient(slackClient, operatorConfig.SlackChannel)
+
+	// This slack client is used for production notifications
+	// Be careful, this can spam people!
+	slackProductionClient := slack.NewChannelClient(slackClient, operatorConfig.SlackChannel, false)
 
 	// This slack client is used for debugging
-	slackDebugChannelClient := slack.NewChannelClient(slackClient, operatorConfig.SlackAdminChannel)
+	slackDebugClient := slack.NewChannelClient(slackClient, operatorConfig.SlackAdminChannel, true)
 
-	recorder := slack.NewRecorder(slackDebugChannelClient, "BugzillaOperator")
+	recorder := slack.NewRecorder(slackDebugClient, "BugzillaOperator")
 
 	slackerInstance := slacker.NewSlacker(slackClient, slacker.Options{
 		ListenAddress:     "0.0.0.0:3000",
@@ -43,23 +46,24 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(operatorConfig.Anonymize()))
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(operatorConfig, slackChannelClient, recorder)
+	staleController := stalecontroller.NewStaleController(operatorConfig, slackProductionClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(operatorConfig, slackChannelClient, slackDebugChannelClient, recorder)
+	closeStaleController := closecontroller.NewCloseStaleController(operatorConfig, slackProductionClient, slackDebugClient, recorder)
 
 	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
 	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
 
 	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
 	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
-	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackChannelClient, slackDebugChannelClient, recorder)
+	// blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackProductionClient, slackDebugClient, recorder)
+	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackDebugClient, slackDebugClient, recorder)
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
 	closedReportSchedule := informer.NewTimeInformer("closed-bugs")
 	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 * * 1-5")
 	closedReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 * * 1-5")
-	closedReporter := closed.NewClosedReporter(operatorConfig, closedReportSchedule, slackChannelClient, recorder)
+	closedReporter := closed.NewClosedReporter(operatorConfig, closedReportSchedule, slackProductionClient, recorder)
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
