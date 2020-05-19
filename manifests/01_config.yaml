@@ -11,6 +11,25 @@ data:
       slackToken:
     release:
       currentTargetRelease: 4.5.0
+    groups:
+      admins:
+      - mfojtik
+      - sttts
+      leads:
+      - deads2k
+      - hexfusion
+      - maszulik
+      - mfojtik
+      - sttts
+      api-auth:
+      - sttts
+      - deads2k
+      - polynomial
+      - Standa
+      - akashem
+      - Luis Sanchez
+      - vareti
+      - marun
     lists:
       closed:
         name: openshift-group-b-closed

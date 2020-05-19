@@ -53,11 +53,15 @@ type BugzillaRelease struct {
 	CurrentTargetRelease string `yaml:"currentTargetRelease"`
 }
 
+type Group []string
+
 type OperatorConfig struct {
 	Credentials Credentials   `yaml:"credentials"`
 	Lists       BugzillaLists `yaml:"lists"`
 
 	Release BugzillaRelease `yaml:"release"`
+
+	Groups map[string]Group `yaml:"groups"`
 
 	// SlackChannel is a channel where the operator will post reports/etc.
 	SlackChannel      string `yaml:"slackChannel"`
