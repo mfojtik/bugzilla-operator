@@ -117,7 +117,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			client := &bugzilla.Fake{
 				Bugs: bugMap,
 			}
-			blockers, needTriage := r.triageBug(client, bugIDs...)
+			result := r.triageBug(client, bugIDs...)
 
 			var expectedBlockers []string
 			for _, b := range test.blockerIDs {
@@ -131,11 +131,11 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 				expectedTriage = append(expectedTriage, bugutil.FormatBugMessage(*bug))
 			}
 
-			if !reflect.DeepEqual(blockers, expectedBlockers) {
-				t.Errorf("expected:\n%s\n as blockers, got:\n%s", strings.Join(expectedBlockers, "\n"), strings.Join(blockers, "\n"))
+			if !reflect.DeepEqual(result.blockers, expectedBlockers) {
+				t.Errorf("expected:\n%s\n as blockers, got:\n%s", strings.Join(expectedBlockers, "\n"), strings.Join(result.blockers, "\n"))
 			}
-			if !reflect.DeepEqual(needTriage, expectedTriage) {
-				t.Errorf("expected:\n%s\n need triage, got:\n%s", strings.Join(expectedTriage, "\n"), strings.Join(needTriage, "\n"))
+			if !reflect.DeepEqual(result.needTriage, expectedTriage) {
+				t.Errorf("expected:\n%s\n need triage, got:\n%s", strings.Join(expectedTriage, "\n"), strings.Join(result.needTriage, "\n"))
 			}
 		})
 	}

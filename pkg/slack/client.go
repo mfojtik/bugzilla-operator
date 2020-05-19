@@ -1,6 +1,8 @@
 package slack
 
 import (
+	"fmt"
+
 	"github.com/slack-go/slack"
 )
 
@@ -20,6 +22,7 @@ type ChannelClient interface {
 type slackClient struct {
 	client  *slack.Client
 	channel string
+	debug   bool
 }
 
 func getEmail(originalEmail string) string {
@@ -36,6 +39,9 @@ func (c *slackClient) MessageChannel(message string) error {
 }
 
 func (c *slackClient) MessageEmail(email, message string) error {
+	if c.debug {
+		return c.MessageChannel(fmt.Sprintf("DEBUG: %q will receive:\n%s", email, message))
+	}
 	user, err := c.client.GetUserByEmail(getEmail(email))
 	if err != nil {
 		return err
@@ -48,10 +54,11 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	return err
 }
 
-func NewChannelClient(client *slack.Client, channel string) ChannelClient {
+func NewChannelClient(client *slack.Client, channel string, debug bool) ChannelClient {
 	c := &slackClient{
 		channel: channel,
 		client:  client,
+		debug:   debug,
 	}
 	return c
 }
