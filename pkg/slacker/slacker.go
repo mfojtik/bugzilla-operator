@@ -155,6 +155,8 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 
 		if userInfo, err := s.client.GetUserInfo(message.User); err == nil {
 			message.Username = userInfo.Name
+		} else {
+			klog.Warningf("Unable to get user %q info: %v", message.User, err)
 		}
 
 		request := NewRequest(ctx, message, parameters)
