@@ -10,7 +10,7 @@ import (
 )
 
 func GetBugURL(b bugzilla.Bug) string {
-	return fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d", b.ID, b.ID)
+	return fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID)
 }
 
 func BugCountPlural(c int, capitalize bool) string {

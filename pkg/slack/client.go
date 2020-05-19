@@ -5,8 +5,11 @@ import (
 )
 
 var peopleWithWrongSlackEmail = map[string]string{
-	"sttts@redhat.com":     "sschiman@redhat.com",
-	"rphillips@redhat.com": "rphillip@redhat.com",
+	"sttts@redhat.com":       "sschiman@redhat.com",
+	"rphillips@redhat.com":   "rphillip@redhat.com",
+	"adam.kaplan@redhat.com": "adkaplan@redhat.com",
+	"wking@redhat.com":       "trking@redhat.com",
+	"sanchezl@redhat.com":    "lusanche@redhat.com",
 }
 
 type ChannelClient interface {
