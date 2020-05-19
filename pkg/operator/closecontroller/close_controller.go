@@ -32,9 +32,12 @@ func NewCloseStaleController(operatorConfig config.OperatorConfig, slackClient s
 }
 
 func (c *CloseStaleController) newClient() bugzilla.Client {
-	return bugzilla.NewClient(func() []byte {
+	client := bugzilla.NewClient(func() []byte {
 		return []byte(c.config.Credentials.DecodedAPIKey())
 	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
+
+	// TODO: Replace this when tested
+	return bugutil.NewStagingBugzillaClient(client, c.slackClient)
 }
 
 func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
