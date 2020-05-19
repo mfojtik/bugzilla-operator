@@ -98,7 +98,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		return err
 	}
 
-	interestingStatus := sets.NewString("NEW", "ASSIGNED")
+	interestingStatus := sets.NewString("NEW", "ASSIGNED", "POST", "ON_DEV")
 	peopleBugsMap := map[string][]int{}
 	for _, b := range blockerBugs {
 		if !interestingStatus.Has(b.Status) {
