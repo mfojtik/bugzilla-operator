@@ -18,7 +18,7 @@ func auth(cfg config.OperatorConfig, handler func(req slacker.Request, w slacker
 
 	return func(req slacker.Request, w slacker.ResponseWriter) {
 		if !users.Has(req.Event().Username) {
-			w.Reply(fmt.Sprintf("Permission denied: User %q does not have permission to run this command", req.Event().Username))
+			w.Reply(fmt.Sprintf("Permission denied: User %q (%q) does not have permission to run this command", req.Event().Username, req.Event().User))
 		}
 	}
 }
