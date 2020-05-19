@@ -21,9 +21,9 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	slackChannelClient := slack.NewChannelClient(slackClient, operatorConfig.SlackChannel)
 
 	// This slack client is used for debugging
-	stagingSlackChannelClient := slack.NewChannelClient(slackClient, "group-b-bots")
+	slackDebugChannelClient := slack.NewChannelClient(slackClient, operatorConfig.SlackAdminChannel)
 
-	recorder := slack.NewRecorder(slackChannelClient, "BugzillaOperator", operatorConfig.SlackUserEmail)
+	recorder := slack.NewRecorder(slackDebugChannelClient, "BugzillaOperator")
 
 	slackerInstance := slacker.NewSlacker(slackClient, slacker.Options{
 		ListenAddress:     "0.0.0.0:3000",
@@ -46,14 +46,14 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 	staleController := stalecontroller.NewStaleController(operatorConfig, slackChannelClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(operatorConfig, stagingSlackChannelClient, recorder)
+	closeStaleController := closecontroller.NewCloseStaleController(operatorConfig, slackChannelClient, slackDebugChannelClient, recorder)
 
 	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
 	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
 
 	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
 	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
-	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackChannelClient, recorder)
+	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackChannelClient, slackDebugChannelClient, recorder)
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
 	closedReportSchedule := informer.NewTimeInformer("closed-bugs")

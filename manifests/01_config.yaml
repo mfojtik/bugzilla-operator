@@ -3,7 +3,7 @@ data:
   config.yaml: |+
     ---
     slackChannel: group-b-status
-    slackUserEmail: mfojtik@redhat.com
+    slackAdminChannel: group-b-bots
     credentials:
       username: base64:
       password: base64:

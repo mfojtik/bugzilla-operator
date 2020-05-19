@@ -8,24 +8,22 @@ import (
 )
 
 type Recorder struct {
-	client          ChannelClient
-	component       string
-	targetUserEmail string
+	client    ChannelClient
+	component string
 }
 
 var _ events.Recorder = &Recorder{}
 
-func NewRecorder(client ChannelClient, component, user string) events.Recorder {
+func NewRecorder(client ChannelClient, component string) events.Recorder {
 	return &Recorder{
-		client:          client,
-		component:       component,
-		targetUserEmail: user,
+		client:    client,
+		component: component,
 	}
 }
 
 func (r *Recorder) Event(reason, message string) {
 	msg := fmt.Sprintf("[*%s#%s*] %s", r.component, reason, message)
-	if err := r.client.MessageEmail(r.targetUserEmail, msg); err != nil {
+	if err := r.client.MessageChannel(msg); err != nil {
 		klog.Warningf("Failed to send: %s (%v)", msg, err)
 	}
 }
@@ -36,7 +34,7 @@ func (r *Recorder) Eventf(reason, messageFmt string, args ...interface{}) {
 
 func (r *Recorder) Warning(reason, message string) {
 	msg := fmt.Sprintf(":warning: [*%s#%s*] %s", r.component, reason, message)
-	if err := r.client.MessageEmail(r.targetUserEmail, msg); err != nil {
+	if err := r.client.MessageChannel(msg); err != nil {
 		klog.Warningf("Failed to send: %s (%v)", msg, err)
 	}
 }

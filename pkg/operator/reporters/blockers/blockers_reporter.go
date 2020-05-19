@@ -20,8 +20,9 @@ import (
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type BlockersReporter struct {
-	config      config.OperatorConfig
-	slackClient slack.ChannelClient
+	config config.OperatorConfig
+
+	slackClient, slackDebugClient slack.ChannelClient
 }
 
 const (
@@ -32,10 +33,11 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
-		config:      operatorConfig,
-		slackClient: slackClient,
+		config:           operatorConfig,
+		slackClient:      slackClient,
+		slackDebugClient: slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
 }
@@ -144,7 +146,7 @@ func (c *BlockersReporter) sendStatsForPeople(blockers, triage map[string][]stri
 			messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
 		}
 	}
-	c.slackClient.MessageEmail(c.config.SlackUserEmail, strings.Join(messages, "\n"))
+	c.slackDebugClient.MessageChannel(strings.Join(messages, "\n"))
 }
 
 func getStatsForChannel(target string, totalCount int, blockers, triage map[string][]string) []string {
