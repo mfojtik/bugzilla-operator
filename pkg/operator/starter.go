@@ -56,8 +56,7 @@ func Run(ctx context.Context, operatorConfig config.OperatorConfig) error {
 
 	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
 	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
-	// blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackProductionClient, slackDebugClient, recorder)
-	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackDebugClient, slackDebugClient, recorder)
+	blockerReporter := blockers.NewBlockersReporter(operatorConfig, blockerReportSchedule, slackProductionClient, slackDebugClient, recorder)
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
 	closedReportSchedule := informer.NewTimeInformer("closed-bugs")
