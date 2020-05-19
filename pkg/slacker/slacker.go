@@ -153,6 +153,10 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 			continue
 		}
 
+		if userInfo, err := s.client.GetUserInfo(message.User); err == nil {
+			message.Username = userInfo.Name
+		}
+
 		request := NewRequest(ctx, message, parameters)
 		if cmd.Definition().AuthorizationFunc != nil && !cmd.Definition().AuthorizationFunc(request) {
 			response.ReportError(errors.New("You are not authorized to execute this command"))
