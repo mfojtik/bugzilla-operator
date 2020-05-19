@@ -65,7 +65,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	closedReporter := closed.NewClosedReporter(cfg, closedReportSchedule, slackProductionClient, recorder)
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
-	slackerInstance.Command("admin report <job>", &slacker.CommandDefinition{
+	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
 		Description: "Trigger a job to run.",
 		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
 			msg := req.StringParam("job", "")
