@@ -18,6 +18,20 @@ data:
       blockers:
         name: openshift-group-b-blockers
         sharerID: 290313
+      staleClose:
+        name: openshift-group-b-lifecycle-close
+        sharerID: 290313
+        action:
+          setState: CLOSED
+          setResolution: WONTFIX
+          priorityTransitions:
+            - from: medium
+              to: low
+            - from: unspecified
+              to: low
+          addComment: >
+            This bug hasn't had any activity 7 days after it was marked as LifecycleStale, so we are closing this bug as WONTFIX.
+            If you consider this bug still valuable, please reopen it or create new bug.
       stale:
         name: openshift-group-b-stale
         sharerID: 290313

@@ -65,10 +65,10 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 		bugUpdate.Flags = flags
 	}
 	if transitions := c.config.Lists.Stale.Action.PriorityTransitions; len(transitions) > 0 {
-		bugUpdate.Priority = degrade(transitions, bugInfo.Priority)
+		bugUpdate.Priority = bugutil.DegradePriority(transitions, bugInfo.Priority)
 	}
 	if transitions := c.config.Lists.Stale.Action.SeverityTransitions; len(transitions) > 0 {
-		bugUpdate.Severity = degrade(transitions, bugInfo.Severity)
+		bugUpdate.Severity = bugutil.DegradePriority(transitions, bugInfo.Severity)
 	}
 	if len(c.config.Lists.Stale.Action.AddComment) > 0 {
 		bugUpdate.Comment = &bugzilla.BugComment{
@@ -120,14 +120,4 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	return errutil.NewAggregate(errors)
-}
-
-// degrade transition Priority and Severity fields one level down
-func degrade(trans []config.Transition, in string) string {
-	for _, t := range trans {
-		if t.From == in {
-			return t.To
-		}
-	}
-	return ""
 }

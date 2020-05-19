@@ -21,6 +21,8 @@ type BugzillaList struct {
 
 type BugAction struct {
 	AddComment           string       `yaml:"addComment"`
+	SetState             string       `yaml:"setState"`
+	SetResolution        string       `yaml:"setResolution"`
 	AddKeyword           string       `yaml:"addKeyword"`
 	PriorityTransitions  []Transition `yaml:"priorityTransitions"`
 	SeverityTransitions  []Transition `yaml:"severityTransitions"`
@@ -29,9 +31,17 @@ type BugAction struct {
 }
 
 type BugzillaLists struct {
-	Stale    BugzillaList `yaml:"stale"`
+	// Stale list represents a list with bugs that are not changes for 30d
+	Stale BugzillaList `yaml:"stale"`
+
+	// StaleClose represents a list with bugs we tagged as LifecycleStale and they were not changed 7d after that.
+	StaleClose BugzillaList `yaml:"staleClose"`
+
+	// Blockers represents a list with bugs considered release blockers
 	Blockers BugzillaList `yaml:"blockers"`
-	Closed   BugzillaList `yaml:"closed"`
+
+	// Closed represents a list with bugs we closed in last 24h
+	Closed BugzillaList `yaml:"closed"`
 }
 
 type Transition struct {
