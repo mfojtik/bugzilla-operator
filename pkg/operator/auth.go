@@ -21,7 +21,7 @@ func auth(cfg config.OperatorConfig, handler func(req slacker.Request, w slacker
 		denied := func() {
 			w.Reply(fmt.Sprintf("Permission denied: User %q (%q) does not have permission to run this command", req.Event().Username, req.Event().User))
 		}
-		if len(req.Event().Username) == 0 || !users.Has(req.Event().Username)){
+		if len(req.Event().Username) == 0 || !users.Has(req.Event().Username) {
 			u, err := w.Client().GetUserInfo(req.Event().User)
 			if err != nil {
 				denied()
