@@ -8,7 +8,6 @@ import (
 	"github.com/eparis/bugzilla"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 )
 
 func TestNewBlockersReporter_Triage(t *testing.T) {
@@ -101,13 +100,6 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := &BlockersReporter{
-				config: config.OperatorConfig{
-					Release: config.BugzillaRelease{
-						CurrentTargetRelease: test.target,
-					},
-				},
-			}
 			bugIDs := []int{}
 			bugMap := map[int]bugzilla.Bug{}
 			for _, b := range test.bugs {
@@ -117,7 +109,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			client := &bugzilla.Fake{
 				Bugs: bugMap,
 			}
-			result := r.triageBug(client, bugIDs...)
+			result := triageBug(client, test.target, bugIDs...)
 
 			var expectedBlockers []string
 			for _, b := range test.blockerIDs {

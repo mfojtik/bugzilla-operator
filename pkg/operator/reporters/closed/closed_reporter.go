@@ -18,29 +18,42 @@ const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 type BlockersReporter struct {
 	config      config.OperatorConfig
+	newBugzillaClient func() bugzilla.Client
 	slackClient slack.ChannelClient
 }
 
-func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() bugzilla.Client, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:      operatorConfig,
+		newBugzillaClient: newBugzillaClient,
 		slackClient: slackClient,
 	}
 	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
 }
 
-func (c *BlockersReporter) newClient() bugzilla.Client {
-	return bugzilla.NewClient(func() []byte {
-		return []byte(c.config.Credentials.DecodedAPIKey())
-	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
+func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	client := c.newBugzillaClient()
+	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
+	if err != nil {
+		return err
+	}
+	if len(report) == 0 {
+		return nil
+	}
+
+	if err := c.slackClient.MessageChannel(report); err != nil {
+		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
+		return err
+	}
+
+	return nil
 }
 
-func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newClient()
-	closedBugs, err := client.BugList(c.config.Lists.Closed.Name, c.config.Lists.Closed.SharerID)
+func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
+	closedBugs, err := client.BugList(config.Lists.Closed.Name, config.Lists.Closed.SharerID)
 	if err != nil {
-		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
-		return err
+		recorder.Warningf("BuglistFailed", err.Error())
+		return "", err
 	}
 
 	resolutionMap := map[string][]bugzilla.Bug{}
@@ -62,14 +75,9 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 
 	if len(closedBugs) == 0 {
-		return nil
+		return "", nil
 	}
 
 	report := fmt.Sprintf("*%s Closed in the last 24h*:\n%s\n", bugutil.BugCountPlural(len(closedBugs), true), strings.Join(message, "\n"))
-	if err := c.slackClient.MessageChannel(report); err != nil {
-		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
-		return err
-	}
-
-	return nil
+	return report, nil
 }
