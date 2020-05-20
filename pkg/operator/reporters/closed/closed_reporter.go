@@ -14,8 +14,6 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const bugzillaEndpoint = "https://bugzilla.redhat.com"
-
 type BlockersReporter struct {
 	config      config.OperatorConfig
 	newBugzillaClient func() bugzilla.Client

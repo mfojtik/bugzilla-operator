@@ -16,33 +16,25 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const bugzillaEndpoint = "https://bugzilla.redhat.com"
-
 type CloseStaleController struct {
 	config config.OperatorConfig
 
+	newBugzillaClient func() bugzilla.Client
 	slackClient, slackDebugClient slack.ChannelClient
 }
 
-func NewCloseStaleController(operatorConfig config.OperatorConfig, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewCloseStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() bugzilla.Client, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &CloseStaleController{
 		config:           operatorConfig,
+		newBugzillaClient: newBugzillaClient,
 		slackClient:      slackClient,
 		slackDebugClient: slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("CloseStaleController", recorder)
 }
 
-func (c *CloseStaleController) newClient() bugzilla.Client {
-	client := bugzilla.NewClient(func() []byte {
-		return []byte(c.config.Credentials.DecodedAPIKey())
-	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
-
-	return client
-}
-
 func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newClient()
+	client := c.newBugzillaClient()
 	staleBugs, err := client.BugList(c.config.Lists.StaleClose.Name, c.config.Lists.StaleClose.SharerID)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
