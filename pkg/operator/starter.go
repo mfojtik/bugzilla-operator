@@ -75,7 +75,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
 		Description: "Trigger a job to run.",
 		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
-			msg := req.StringParam("job", "")
+			job := req.StringParam("job", "")
 
 			reports := map[string]func(){
 				"blocker-bugs": blockerReportSchedule.RunNow,
@@ -84,8 +84,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				// don't forget to also add new reports down in the direct report command
 			}
 
-			switch msg {
-			case "help":
+			switch job {
+			case "help", "":
 				names := []string{}
 				for s := range reports {
 					names = append(names, s)
@@ -93,16 +93,16 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				sort.Strings(names)
 				w.Reply(strings.Join(names, "\n"))
 			default:
-				if report, ok := reports[msg]; ok {
+				if report, ok := reports[job]; ok {
 					report()
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
-						slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", msg), false))
+						slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
 					if err != nil {
 						klog.Error(err)
 					}
 				} else {
-					w.Reply(fmt.Sprintf("Unknown report %q", msg))
+					w.Reply(fmt.Sprintf("Unknown report %q", job))
 				}
 			}
 		}, "group:admins"),
@@ -110,7 +110,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: "Run a report and print result here.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
-			msg := req.StringParam("job", "")
+			job := req.StringParam("job", "")
 			reports := map[string]func(ctx context.Context, client bugzilla.Client) (string, error){
 				"blocker-bugs": func(ctx context.Context, client bugzilla.Client) (string, error) {
 					report, _, err := blockers.Report(ctx, client, recorder, &cfg)
@@ -123,8 +123,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				// don't forget to also add new reports above in the trigger command
 			}
 
-			switch msg {
-			case "help":
+			switch job {
+			case "help", "":
 				names := []string{}
 				for s := range reports {
 					names = append(names, s)
@@ -132,15 +132,15 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				sort.Strings(names)
 				w.Reply(strings.Join(names, "\n"))
 			default:
-				report, ok := reports[msg]
+				report, ok := reports[job]
 				if !ok {
-					w.Reply(fmt.Sprintf("Unknown report %q", msg))
+					w.Reply(fmt.Sprintf("Unknown report %q", job))
 					break
 				}
 
 				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 					slackgo.MsgOptionPostEphemeral(req.Event().User),
-					slackgo.MsgOptionText(fmt.Sprintf("Running job %q. This might take some seconds.", msg), false))
+					slackgo.MsgOptionText(fmt.Sprintf("Running job %q. This might take some seconds.", job), false))
 				if err != nil {
 					klog.Error(err)
 				}
@@ -149,7 +149,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				if err != nil {
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
-						slackgo.MsgOptionText(fmt.Sprintf("Error running report %v: %v", msg, err), false))
+						slackgo.MsgOptionText(fmt.Sprintf("Error running report %v: %v", job, err), false))
 					if err != nil {
 						klog.Error(err)
 					}
