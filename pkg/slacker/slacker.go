@@ -77,7 +77,7 @@ func (s *Slacker) Run(ctx context.Context) {
 
 func (s *Slacker) Listen(ctx context.Context) error {
 	defer runtime.HandleCrash()
-	s.prependHelpHandle()
+	s.appendHelpHandle()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +175,7 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 	}
 }
 
-func (s *Slacker) prependHelpHandle() {
+func (s *Slacker) appendHelpHandle() {
 	if s.helpDefinition == nil {
 		s.helpDefinition = &CommandDefinition{}
 	}
@@ -188,7 +188,7 @@ func (s *Slacker) prependHelpHandle() {
 		s.helpDefinition.Description = helpCommand
 	}
 
-	s.botCommands = append([]BotCommand{NewBotCommand(helpCommand, s.helpDefinition)}, s.botCommands...)
+	s.botCommands = append(s.botCommands, NewBotCommand(helpCommand, s.helpDefinition))
 }
 
 func (s *Slacker) defaultHelp(request Request, response ResponseWriter) {
