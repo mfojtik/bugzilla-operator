@@ -138,6 +138,13 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					break
 				}
 
+				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+					slackgo.MsgOptionPostEphemeral(req.Event().User),
+					slackgo.MsgOptionText(fmt.Sprintf("Running job %q. This might take some seconds.", msg), false))
+				if err != nil {
+					klog.Error(err)
+				}
+
 				reply, err := report(context.TODO(), newBugzillaClient(&cfg)())
 				if err != nil {
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
