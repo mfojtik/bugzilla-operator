@@ -199,7 +199,7 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 	}
 	return []string{
 		fmt.Sprintf("> All Blocker Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|%d>", totalCount),
-		fmt.Sprintf("> %s Blocker Count: *%d*", targetRelease, totalTargetBlockerCount),
+		fmt.Sprintf("> %s Blocker Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease, totalTargetBlockerCount),
 		fmt.Sprintf("> Need _UpcomingSprint_ keyword: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
 		fmt.Sprintf("> Blockers Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
 	}
