@@ -17,11 +17,10 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const bugzillaEndpoint = "https://bugzilla.redhat.com"
-
 type BlockersReporter struct {
 	config config.OperatorConfig
 
+	newBugzillaClient             func() bugzilla.Client
 	slackClient, slackDebugClient slack.ChannelClient
 }
 
@@ -33,19 +32,14 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() bugzilla.Client, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
-		config:           operatorConfig,
-		slackClient:      slackClient,
-		slackDebugClient: slackDebugClient,
+		config:            operatorConfig,
+		newBugzillaClient: newBugzillaClient,
+		slackClient:       slackClient,
+		slackDebugClient:  slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
-}
-
-func (c *BlockersReporter) newClient() bugzilla.Client {
-	return bugzilla.NewClient(func() []byte {
-		return []byte(c.config.Credentials.DecodedAPIKey())
-	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
 }
 
 type triageResult struct {
@@ -54,8 +48,7 @@ type triageResult struct {
 	upcomingSprint []string
 }
 
-func (c *BlockersReporter) triageBug(client bugzilla.Client, bugIDs ...int) triageResult {
-	currentTargetRelease := c.config.Release.CurrentTargetRelease
+func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...int) triageResult {
 	r := triageResult{}
 	for _, id := range bugIDs {
 		bug, err := client.GetBug(id)
@@ -91,11 +84,47 @@ type notificationMap struct {
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newClient()
-	blockerBugs, err := client.BugList(c.config.Lists.Blockers.Name, c.config.Lists.Blockers.SharerID)
+	client := c.newBugzillaClient()
+
+	channelReport, triageResult, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
 	if err != nil {
-		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 		return err
+	}
+
+	for person, notifications := range triageResult.blockers {
+		if len(notifications) == 0 {
+			continue
+		}
+		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications), c.config.Release.CurrentTargetRelease), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
+		if err := c.slackClient.MessageEmail(person, message); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
+		}
+	}
+
+	for person, notifications := range triageResult.triage {
+		if len(notifications) == 0 {
+			continue
+		}
+		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(triageIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(triageOutro))
+		if err := c.slackClient.MessageEmail(person, message); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
+		}
+	}
+
+	if err := c.slackClient.MessageChannel(channelReport); err != nil {
+		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
+	}
+
+	// send debug stats
+	c.sendStatsForPeople(triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
+	return nil
+}
+
+func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorder, config *config.OperatorConfig) (string, *notificationMap, error) {
+	blockerBugs, err := client.BugList(config.Lists.Blockers.Name, config.Lists.Blockers.SharerID)
+	if err != nil {
+		recorder.Warningf("BuglistFailed", err.Error())
+		return "", nil, err
 	}
 
 	interestingStatus := sets.NewString("NEW", "ASSIGNED", "POST", "ON_DEV")
@@ -118,7 +147,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		wg.Add(1)
 		go func(person string, ids []int) {
 			defer wg.Done()
-			result := c.triageBug(client, ids...)
+			result := triageBug(client, config.Release.CurrentTargetRelease, ids...)
 			triageResult.Lock()
 			defer triageResult.Unlock()
 			triageResult.blockers[person] = result.blockers
@@ -128,35 +157,10 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 	wg.Wait()
 
-	for person, notifications := range triageResult.blockers {
-		if len(notifications) == 0 {
-			continue
-		}
-		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(blockerIntro, len(notifications), c.config.Release.CurrentTargetRelease), strings.Join(notifications, "\n"), fmt.Sprintf(blockerOutro))
-		if err := c.slackClient.MessageEmail(person, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
-		}
-	}
+	channelStats := getStatsForChannel(config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
+	report := fmt.Sprintf("*Current Blocker Stats:*\n%s\n", strings.Join(channelStats, "\n"))
 
-	for person, notifications := range triageResult.triage {
-		if len(notifications) == 0 {
-			continue
-		}
-		message := fmt.Sprintf("%s%s%s", fmt.Sprintf(triageIntro, len(notifications)), strings.Join(notifications, "\n"), fmt.Sprintf(triageOutro))
-		if err := c.slackClient.MessageEmail(person, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver:\n\n%s\n\n to %q: %v", message, person, err)
-		}
-	}
-
-	channelStats := getStatsForChannel(c.config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
-	if err := c.slackClient.MessageChannel(fmt.Sprintf("*Current Blocker Stats:*\n%s\n", strings.Join(channelStats, "\n"))); err != nil {
-		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
-	}
-
-	// send debug stats
-	c.sendStatsForPeople(triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
-
-	return nil
+	return report, triageResult, nil
 }
 
 func (c *BlockersReporter) sendStatsForPeople(blockers, triage, upcomingSprint map[string][]string) {
