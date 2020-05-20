@@ -18,25 +18,19 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const bugzillaEndpoint = "https://bugzilla.redhat.com"
-
 type StaleController struct {
 	config      config.OperatorConfig
+	newBugzillaClient func() bugzilla.Client
 	slackClient slack.ChannelClient
 }
 
-func NewStaleController(operatorConfig config.OperatorConfig, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() bugzilla.Client, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &StaleController{
 		config:      operatorConfig,
+		newBugzillaClient: newBugzillaClient,
 		slackClient: slackClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
-}
-
-func (c *StaleController) newClient() bugzilla.Client {
-	return bugzilla.NewClient(func() []byte {
-		return []byte(c.config.Credentials.DecodedAPIKey())
-	}, bugzillaEndpoint).WithCGIClient(c.config.Credentials.DecodedUsername(), c.config.Credentials.DecodedPassword())
 }
 
 func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
@@ -79,7 +73,7 @@ func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newClient()
+	client := c.newBugzillaClient()
 	staleBugs, err := client.BugList(c.config.Lists.Stale.Name, c.config.Lists.Stale.SharerID)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())

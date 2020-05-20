@@ -53,10 +53,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(cfg, slackProductionClient, recorder)
+	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(cfg, slackProductionClient, slackDebugClient, recorder)
+	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
 
 	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
 	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
