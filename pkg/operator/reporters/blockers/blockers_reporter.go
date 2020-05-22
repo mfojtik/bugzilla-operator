@@ -43,9 +43,9 @@ func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer 
 }
 
 type triageResult struct {
-	blockers       []string
-	needTriage     []string
-	upcomingSprint []string
+	blockers           []string
+	needTriage         []string
+	needUpcomingSprint []string
 }
 
 func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...int) triageResult {
@@ -57,7 +57,7 @@ func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...in
 		}
 		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
-			r.upcomingSprint = append(r.upcomingSprint, bugutil.FormatBugMessage(*bug))
+			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(*bug))
 		}
 		if len(bug.TargetRelease) == 0 {
 			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
@@ -152,7 +152,7 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 			defer triageResult.Unlock()
 			triageResult.blockers[person] = result.blockers
 			triageResult.triage[person] = result.needTriage
-			triageResult.upcomingSprint[person] = result.upcomingSprint
+			triageResult.upcomingSprint[person] = result.needUpcomingSprint
 		}(person, bugIDs)
 	}
 	wg.Wait()
@@ -192,7 +192,7 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 	for p := range blockers {
 		totalTargetBlockerCount += len(blockers[p])
 	}
-	needUpcomingSprint := totalCount - len(upcomingSprint)
+	needUpcomingSprint := len(upcomingSprint)
 	// we can have bug here :-)
 	if needUpcomingSprint < 0 {
 		needUpcomingSprint = 0
