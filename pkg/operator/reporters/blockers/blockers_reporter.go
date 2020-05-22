@@ -76,16 +76,16 @@ func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...in
 			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(*bug))
 		}
 
-		if len(bug.TargetRelease) == 0 {
-			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
-			continue
+		targetRelease := "---"
+		if len(bug.TargetRelease) > 0 {
+			targetRelease = bug.TargetRelease[0]
 		}
 
-		if bug.Severity == "unspecified" || bug.TargetRelease[0] == "---" {
+		if bug.Severity == "unspecified" || targetRelease == "---" {
 			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
 		}
 
-		if bug.TargetRelease[0] == currentTargetRelease {
+		if targetRelease == currentTargetRelease || targetRelease == "---" {
 			r.blockers = append(r.blockers, bugutil.FormatBugMessage(*bug))
 		}
 	}

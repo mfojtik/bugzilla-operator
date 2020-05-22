@@ -67,7 +67,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 					Severity:      "high",
 				},
 			},
-			blockerIDs: []int{},
+			blockerIDs: []int{1},
 			triageIDs:  []int{1},
 		},
 		{
@@ -80,7 +80,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 					Severity:      "unspecified",
 				},
 			},
-			blockerIDs: []int{},
+			blockerIDs: []int{1},
 			triageIDs:  []int{1},
 		},
 		{
