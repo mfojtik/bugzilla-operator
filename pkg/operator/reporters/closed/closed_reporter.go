@@ -85,7 +85,7 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 	}
 
 	if len(closedBugs) == 0 {
-		return "", nil
+		return "*No bugs closed in last 24h* :-(\n", nil
 	}
 
 	report := fmt.Sprintf("*%s Closed in the last 24h*:\n%s\n", bugutil.BugCountPlural(len(closedBugs), true), strings.Join(messages, "\n"))

@@ -67,8 +67,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
 	closedReportSchedule := informer.NewTimeInformer("closed-bugs")
-	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 * * 1-5")
-	closedReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 * * 1-5")
+	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 35 9 * * 1-5")
+	closedReportSchedule.Schedule("CRON_TZ=America/New_York 35 9 * * 1-5")
 	closedReporter := closed.NewClosedReporter(cfg, closedReportSchedule, newBugzillaClient(&cfg), slackProductionClient, recorder)
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
