@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog"
 
 	"github.com/eparis/bugzilla"
 
@@ -46,19 +47,29 @@ type triageResult struct {
 	blockers           []string
 	needTriage         []string
 	needUpcomingSprint []string
+	priorities         map[string]int
+	severities         map[string]int
 }
 
 func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...int) triageResult {
-	r := triageResult{}
+	r := triageResult{
+		priorities: map[string]int{},
+		severities: map[string]int{},
+	}
 	for _, id := range bugIDs {
 		bug, err := client.GetBug(id)
 		if err != nil {
+			klog.Infof("Failed to get bug %d: %v", id, err)
 			continue
 		}
+		r.severities[bug.Severity]++
+		r.priorities[bug.Priority]++
+
 		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
 			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(*bug))
 		}
+
 		if len(bug.TargetRelease) == 0 {
 			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(*bug))
 			continue
@@ -80,6 +91,8 @@ type notificationMap struct {
 	blockers       map[string][]string
 	triage         map[string][]string
 	upcomingSprint map[string][]string
+	priorities     map[string]int
+	severities     map[string]int
 	sync.Mutex
 }
 
@@ -140,6 +153,8 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 		blockers:       make(map[string][]string),
 		triage:         make(map[string][]string),
 		upcomingSprint: make(map[string][]string),
+		priorities:     make(map[string]int),
+		severities:     make(map[string]int),
 	}
 
 	var wg sync.WaitGroup
@@ -153,12 +168,18 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 			triageResult.blockers[person] = result.blockers
 			triageResult.triage[person] = result.needTriage
 			triageResult.upcomingSprint[person] = result.needUpcomingSprint
+			for severity, count := range result.severities {
+				triageResult.severities[severity] += count
+			}
+			for priority, count := range result.priorities {
+				triageResult.priorities[priority] += count
+			}
 		}(person, bugIDs)
 	}
 	wg.Wait()
 
-	channelStats := getStatsForChannel(config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
-	report := fmt.Sprintf("*Current Blocker Stats:*\n%s\n", strings.Join(channelStats, "\n"))
+	channelStats := getStatsForChannel(config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint, triageResult.severities, triageResult.priorities)
+	report := fmt.Sprintf("\n:bug: *Today Bugs Breakdown:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
 
 	return report, triageResult, nil
 }
@@ -183,7 +204,26 @@ func (c *BlockersReporter) sendStatsForPeople(blockers, triage, upcomingSprint m
 	c.slackDebugClient.MessageChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, upcomingSprint map[string][]string) []string {
+func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, upcomingSprint map[string][]string, severity, priority map[string]int) []string {
+	sortedPrioNames := []string{
+		"urgent",
+		"high",
+		"medium",
+		"low",
+		"unspecified",
+	}
+	severityMessages := []string{}
+	for _, p := range sortedPrioNames {
+		if severity[p] > 0 {
+			severityMessages = append(severityMessages, fmt.Sprintf("%d _%s_", severity[p], p))
+		}
+	}
+	priorityMessages := []string{}
+	for _, p := range sortedPrioNames {
+		if priority[p] > 0 {
+			priorityMessages = append(priorityMessages, fmt.Sprintf("%d _%s_", priority[p], p))
+		}
+	}
 	totalTriageCount := 0
 	for p := range triage {
 		totalTriageCount += len(triage[p])
@@ -198,9 +238,11 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 		needUpcomingSprint = 0
 	}
 	return []string{
-		fmt.Sprintf("> All Blocker Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|%d>", totalCount),
+		fmt.Sprintf("> All 4.x Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|%d>", totalCount),
+		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ",")),
+		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ",")),
 		fmt.Sprintf("> %s Blocker Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease, totalTargetBlockerCount),
-		fmt.Sprintf("> Need _UpcomingSprint_ keyword: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
-		fmt.Sprintf("> Blockers Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
+		fmt.Sprintf("> Bugs Need _UpcomingSprint_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
+		fmt.Sprintf("> Bugs Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
 	}
 }
