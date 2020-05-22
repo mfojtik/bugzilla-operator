@@ -107,6 +107,8 @@ type Bug struct {
 	Version []string `json:"version,omitempty"`
 	// Whiteboard is he value of the "status whiteboard" field on the bug.
 	Whiteboard string `json:"whiteboard,omitempty"`
+	// DevelWhiteboard is the value of the "devel whiteboard" field on the bug.
+	DevelWhiteboard string `json:"cf_devel_whiteboard,omitempty"`
 }
 
 // User holds information about a user
