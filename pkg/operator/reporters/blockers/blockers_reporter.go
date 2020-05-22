@@ -63,13 +63,13 @@ func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...in
 			klog.Infof("Failed to get bug %d: %v", id, err)
 			continue
 		}
-		r.severities[bug.Severity]++
-		r.priorities[bug.Priority]++
-
 		if strings.Contains(bug.DevelWhiteboard, "LifecycleStale") {
 			r.stale++
 			continue
 		}
+
+		r.severities[bug.Severity]++
+		r.priorities[bug.Priority]++
 
 		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
