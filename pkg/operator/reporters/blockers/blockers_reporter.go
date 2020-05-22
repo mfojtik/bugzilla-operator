@@ -179,7 +179,7 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 	wg.Wait()
 
 	channelStats := getStatsForChannel(config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint, triageResult.severities, triageResult.priorities)
-	report := fmt.Sprintf("\n:bug: *Today Bugs Breakdown:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
+	report := fmt.Sprintf("\n:bug: *Today 4.x Bug Report:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
 
 	return report, triageResult, nil
 }
@@ -239,8 +239,8 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 	}
 	return []string{
 		fmt.Sprintf("> All 4.x Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers&sharer_id=290313|%d>", totalCount),
-		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ",")),
-		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ",")),
+		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
+		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
 		fmt.Sprintf("> %s Blocker Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease, totalTargetBlockerCount),
 		fmt.Sprintf("> Bugs Need _UpcomingSprint_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
 		fmt.Sprintf("> Bugs Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
