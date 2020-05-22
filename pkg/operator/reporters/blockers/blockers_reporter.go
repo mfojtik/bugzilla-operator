@@ -56,7 +56,7 @@ func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...in
 			continue
 		}
 		keywords := sets.NewString(bug.Keywords...)
-		if keywords.Has("UpcomingSprint") {
+		if !keywords.Has("UpcomingSprint") {
 			r.upcomingSprint = append(r.upcomingSprint, bugutil.FormatBugMessage(*bug))
 		}
 		if len(bug.TargetRelease) == 0 {
