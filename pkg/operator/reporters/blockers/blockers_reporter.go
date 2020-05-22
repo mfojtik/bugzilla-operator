@@ -45,6 +45,7 @@ func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer 
 
 type triageResult struct {
 	blockers           []string
+	stale              int
 	needTriage         []string
 	needUpcomingSprint []string
 	priorities         map[string]int
@@ -64,6 +65,11 @@ func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...in
 		}
 		r.severities[bug.Severity]++
 		r.priorities[bug.Priority]++
+
+		if strings.Contains(bug.DevelWhiteboard, "LifecycleStale") {
+			r.stale++
+			continue
+		}
 
 		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
@@ -93,6 +99,7 @@ type notificationMap struct {
 	upcomingSprint map[string][]string
 	priorities     map[string]int
 	severities     map[string]int
+	stale          int
 	sync.Mutex
 }
 
@@ -174,11 +181,21 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 			for priority, count := range result.priorities {
 				triageResult.priorities[priority] += count
 			}
+			triageResult.stale += result.stale
 		}(person, bugIDs)
 	}
 	wg.Wait()
 
-	channelStats := getStatsForChannel(config.Release.CurrentTargetRelease, len(blockerBugs), triageResult.blockers, triageResult.triage, triageResult.upcomingSprint, triageResult.severities, triageResult.priorities)
+	channelStats := getStatsForChannel(
+		config.Release.CurrentTargetRelease,
+		len(blockerBugs),
+		triageResult.blockers,
+		triageResult.triage,
+		triageResult.upcomingSprint,
+		triageResult.severities,
+		triageResult.priorities,
+		triageResult.stale,
+	)
 	report := fmt.Sprintf("\n:bug: *Today 4.x Bug Report:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
 
 	return report, triageResult, nil
@@ -204,7 +221,7 @@ func (c *BlockersReporter) sendStatsForPeople(blockers, triage, upcomingSprint m
 	c.slackDebugClient.MessageChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, upcomingSprint map[string][]string, severity, priority map[string]int) []string {
+func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, upcomingSprint map[string][]string, severity, priority map[string]int, stale int) []string {
 	sortedPrioNames := []string{
 		"urgent",
 		"high",
@@ -242,7 +259,8 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
 		fmt.Sprintf("> %s Blocker Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease, totalTargetBlockerCount),
-		fmt.Sprintf("> Bugs Need _UpcomingSprint_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
-		fmt.Sprintf("> Bugs Need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
+		fmt.Sprintf("> Bugs need _UpcomingSprint_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
+		fmt.Sprintf("> Bugs need Triage: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
+		fmt.Sprintf("> Bugs marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", stale),
 	}
 }
