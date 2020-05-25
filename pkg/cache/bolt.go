@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"os"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -10,7 +11,15 @@ import (
 var db *bolt.DB = nil
 
 func Open(path string) {
-	var err error
+	stat, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		if err := os.MkdirAll(path, os.ModePerm); err != nil {
+			klog.Fatalf("unable to create %q: %v", path, err)
+		}
+	}
+	if !stat.IsDir() {
+		klog.Fatalf("path %q exists, but it is not directory", path)
+	}
 	db, err = bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
 
 	if err != nil {

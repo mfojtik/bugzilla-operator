@@ -25,7 +25,7 @@ import (
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 func Run(ctx context.Context, cfg config.OperatorConfig) error {
-	if cfg.CachePath != "" {
+	if len(cfg.CachePath) > 0 {
 		cache.Open(cfg.CachePath)
 	}
 	defer cache.Close()
