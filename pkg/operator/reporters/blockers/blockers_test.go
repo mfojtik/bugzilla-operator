@@ -10,6 +10,22 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 )
 
+type fakeClient struct {
+	*bugzilla.Fake
+}
+
+func (f *fakeClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, error) {
+	return f.GetBug(id)
+}
+
+func (f *fakeClient) GetCachedBugComments(id int, lastChangedTime string) ([]bugzilla.Comment, error) {
+	panic("implement me")
+}
+
+func (f *fakeClient) GetCachedBugHistory(id int, lastChangedTime string) ([]bugzilla.History, error) {
+	panic("implement me")
+}
+
 func TestNewBlockersReporter_Triage(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -106,10 +122,16 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 				bugIDs = append(bugIDs, b.ID)
 				bugMap[b.ID] = b
 			}
-			client := &bugzilla.Fake{
+			client := &fakeClient{&bugzilla.Fake{
 				Bugs: bugMap,
+			}}
+			bugs := []bugWithRevision{}
+			for _, i := range bugIDs {
+				bugs = append(bugs, bugWithRevision{
+					id: i,
+				})
 			}
-			result := triageBug(client, test.target, bugIDs...)
+			result := triageBug(client, test.target, bugs...)
 
 			var expectedBlockers []string
 			for _, b := range test.blockerIDs {
