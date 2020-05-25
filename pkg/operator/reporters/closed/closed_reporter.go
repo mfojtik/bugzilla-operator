@@ -50,7 +50,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	return nil
 }
 
-func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
 	closedBugs, err := client.BugList(config.Lists.Closed.Name, config.Lists.Closed.SharerID)
 	if err != nil {
 		recorder.Warningf("BuglistFailed", err.Error())

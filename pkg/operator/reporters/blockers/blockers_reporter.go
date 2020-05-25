@@ -11,8 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 
-	"github.com/eparis/bugzilla"
-
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
@@ -53,15 +51,15 @@ type triageResult struct {
 	severities         map[string]int
 }
 
-func triageBug(client bugzilla.Client, currentTargetRelease string, bugIDs ...int) triageResult {
+func triageBug(client cache.BugzillaClient, currentTargetRelease string, bugs ...bugWithRevision) triageResult {
 	r := triageResult{
 		priorities: map[string]int{},
 		severities: map[string]int{},
 	}
-	for _, id := range bugIDs {
-		bug, err := client.GetBug(id)
+	for _, b := range bugs {
+		bug, err := client.GetCachedBug(b.id, b.revision)
 		if err != nil {
-			klog.Infof("Failed to get bug %d: %v", id, err)
+			klog.Infof("Failed to get bug %d: %v", b.id, err)
 			continue
 		}
 		if strings.Contains(bug.DevelWhiteboard, "LifecycleStale") {
@@ -141,7 +139,12 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	return nil
 }
 
-func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorder, config *config.OperatorConfig) (string, *notificationMap, error) {
+type bugWithRevision struct {
+	id       int
+	revision string
+}
+
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, *notificationMap, error) {
 	blockerBugs, err := client.BugList(config.Lists.Blockers.Name, config.Lists.Blockers.SharerID)
 	if err != nil {
 		recorder.Warningf("BuglistFailed", err.Error())
@@ -149,12 +152,16 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 	}
 
 	interestingStatus := sets.NewString("NEW", "ASSIGNED", "POST", "ON_DEV")
-	peopleBugsMap := map[string][]int{}
+
+	peopleBugsMap := map[string][]bugWithRevision{}
 	for _, b := range blockerBugs {
 		if !interestingStatus.Has(b.Status) {
 			continue
 		}
-		peopleBugsMap[b.AssignedTo] = append(peopleBugsMap[b.AssignedTo], b.ID)
+		peopleBugsMap[b.AssignedTo] = append(peopleBugsMap[b.AssignedTo], bugWithRevision{
+			id:       b.ID,
+			revision: bugutil.LastChangeTimeToRevision(b.LastChangeTime),
+		})
 	}
 
 	triageResult := &notificationMap{
@@ -166,11 +173,11 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 	}
 
 	var wg sync.WaitGroup
-	for person, bugIDs := range peopleBugsMap {
+	for person, assignedBugs := range peopleBugsMap {
 		wg.Add(1)
-		go func(person string, ids []int) {
+		go func(person string, bugs ...bugWithRevision) {
 			defer wg.Done()
-			result := triageBug(client, config.Release.CurrentTargetRelease, ids...)
+			result := triageBug(client, config.Release.CurrentTargetRelease, bugs...)
 			triageResult.Lock()
 			defer triageResult.Unlock()
 			triageResult.blockers[person] = result.blockers
@@ -183,7 +190,7 @@ func Report(ctx context.Context, client bugzilla.Client, recorder events.Recorde
 				triageResult.priorities[priority] += count
 			}
 			triageResult.stale += result.stale
-		}(person, bugIDs)
+		}(person, assignedBugs...)
 	}
 	wg.Wait()
 

@@ -117,12 +117,12 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Description: "Run a report and print result here.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
-			reports := map[string]func(ctx context.Context, client bugzilla.Client) (string, error){
-				"blocker-bugs": func(ctx context.Context, client bugzilla.Client) (string, error) {
+			reports := map[string]func(ctx context.Context, client cache.BugzillaClient) (string, error){
+				"blocker-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					report, _, err := blockers.Report(ctx, client, recorder, &cfg)
 					return report, err
 				},
-				"closed-bugs": func(ctx context.Context, client bugzilla.Client) (string, error) {
+				"closed-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					return closed.Report(ctx, client, recorder, &cfg)
 				},
 

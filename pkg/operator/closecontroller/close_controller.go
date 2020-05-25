@@ -20,16 +20,16 @@ import (
 type CloseStaleController struct {
 	config config.OperatorConfig
 
-	newBugzillaClient func() cache.BugzillaClient
+	newBugzillaClient             func() cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
 }
 
 func NewCloseStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &CloseStaleController{
-		config:           operatorConfig,
+		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,
-		slackClient:      slackClient,
-		slackDebugClient: slackDebugClient,
+		slackClient:       slackClient,
+		slackDebugClient:  slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("CloseStaleController", recorder)
 }
@@ -45,7 +45,7 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var errors []error
 	var closedBugLinks []string
 	for _, bug := range staleBugs {
-		bugInfo, err := client.GetBug(bug.ID)
+		bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
 		if err != nil {
 			syncCtx.Recorder().Warningf("BugInfoFailed", "Failed to query bug #%d: %v", bug.ID, err)
 			errors = append(errors, err)

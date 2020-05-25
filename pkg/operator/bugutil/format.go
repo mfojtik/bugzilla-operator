@@ -3,6 +3,7 @@ package bugutil
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/eparis/bugzilla"
 
@@ -11,6 +12,15 @@ import (
 
 func GetBugURL(b bugzilla.Bug) string {
 	return fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID)
+}
+
+// ParseLastChangeTime parse the "2020-05-20 10:45:16 +0000 UTC" to "2020-05-20T10:45:16Z" which can be used for cache revision.
+func LastChangeTimeToRevision(value string) string {
+	parsedTime, err := time.Parse("2006-01-02 15:04:05 -0700 MST", value)
+	if err != nil {
+		return value
+	}
+	return parsedTime.Format("2006-01-02T15:04:05Z")
 }
 
 func BugCountPlural(c int, capitalize bool) string {
