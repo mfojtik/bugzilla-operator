@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -19,11 +20,11 @@ import (
 type CloseStaleController struct {
 	config config.OperatorConfig
 
-	newBugzillaClient func() bugzilla.Client
+	newBugzillaClient func() cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
 }
 
-func NewCloseStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() bugzilla.Client, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewCloseStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &CloseStaleController{
 		config:           operatorConfig,
 		newBugzillaClient: newBugzillaClient,

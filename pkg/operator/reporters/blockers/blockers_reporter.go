@@ -13,6 +13,7 @@ import (
 
 	"github.com/eparis/bugzilla"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -21,7 +22,7 @@ import (
 type BlockersReporter struct {
 	config config.OperatorConfig
 
-	newBugzillaClient             func() bugzilla.Client
+	newBugzillaClient             func() cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
 }
 
@@ -33,7 +34,7 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() bugzilla.Client, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,

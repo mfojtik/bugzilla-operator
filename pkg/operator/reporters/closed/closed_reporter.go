@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -18,11 +19,11 @@ import (
 
 type BlockersReporter struct {
 	config            config.OperatorConfig
-	newBugzillaClient func() bugzilla.Client
+	newBugzillaClient func() cache.BugzillaClient
 	slackClient       slack.ChannelClient
 }
 
-func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() bugzilla.Client, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,

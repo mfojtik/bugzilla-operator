@@ -3,6 +3,7 @@ module github.com/mfojtik/bugzilla-operator
 go 1.14
 
 require (
+	github.com/boltdb/bolt v1.3.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/eparis/bugzilla v0.0.0-20200518124032-4b8cbef6916b
 	github.com/gorilla/handlers v1.4.2

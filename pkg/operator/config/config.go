@@ -66,6 +66,8 @@ type OperatorConfig struct {
 	// SlackChannel is a channel where the operator will post reports/etc.
 	SlackChannel      string `yaml:"slackChannel"`
 	SlackAdminChannel string `yaml:"slackAdminChannel"`
+
+	CachePath string `yaml:"cachePath"`
 }
 
 // Anonymize makes a shallow copy of the config, suitable for dumping in logs (no sensitive data)
