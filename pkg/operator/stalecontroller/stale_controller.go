@@ -13,22 +13,23 @@ import (
 
 	"github.com/eparis/bugzilla"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type StaleController struct {
-	config      config.OperatorConfig
-	newBugzillaClient func() bugzilla.Client
-	slackClient slack.ChannelClient
+	config            config.OperatorConfig
+	newBugzillaClient func() cache.BugzillaClient
+	slackClient       slack.ChannelClient
 }
 
-func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() bugzilla.Client, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &StaleController{
-		config:      operatorConfig,
+		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,
-		slackClient: slackClient,
+		slackClient:       slackClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
 }

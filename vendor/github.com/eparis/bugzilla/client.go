@@ -38,6 +38,8 @@ const (
 type Client interface {
 	Endpoint() string
 	GetBug(id int) (*Bug, error)
+	GetBugComments(id int) ([]Comment, error)
+	GetBugHistory(id int) ([]History, error)
 	Search(query Query) ([]*Bug, error)
 	GetExternalBugPRsOnBug(id int) ([]ExternalBug, error)
 	UpdateBug(id int, update BugUpdate) error
@@ -115,6 +117,65 @@ func (c *client) GetBug(id int) (*Bug, error) {
 		return nil, fmt.Errorf("did not get one bug, but %d: %v", len(bugs), bugs)
 	}
 	return bugs[0], nil
+}
+
+// GetBugComments retrieves the comments of a Bug from the server
+// https://bugzilla.readthedocs.io/en/latest/api/core/v1/comment.html#get-comments
+func (c *client) GetBugComments(id int) ([]Comment, error) {
+	logger := c.logger.WithFields(logrus.Fields{methodField: "GetBugComments", "id": id})
+	url := fmt.Sprintf("%s/rest/bug/%d/comment", c.endpoint, id)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.request(req, logger)
+	if err != nil {
+		return nil, err
+	}
+	var parsedResponse struct {
+		Bugs map[string]*struct {
+			Comments []Comment `json:"comments,omitempty"`
+		} `json:"bugs,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &parsedResponse); err != nil {
+		return nil, fmt.Errorf("could not unmarshal response body: %v", err)
+	}
+	if len(parsedResponse.Bugs) != 1 {
+		return nil, fmt.Errorf("did not get one bug, but %d: %v", len(parsedResponse.Bugs), parsedResponse.Bugs)
+	}
+	for _, comments := range parsedResponse.Bugs {
+		return comments.Comments, nil
+	}
+	return nil, nil
+}
+
+// GetBugHistory retrieves the history of a Bug from the server
+// https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#bug-history
+func (c *client) GetBugHistory(id int) ([]History, error) {
+	logger := c.logger.WithFields(logrus.Fields{methodField: "GetBugHistory", "id": id})
+	url := fmt.Sprintf("%s/rest/bug/%d/history", c.endpoint, id)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := c.request(req, logger)
+	if err != nil {
+		return nil, err
+	}
+	var parsedResponse struct {
+		Bugs []*struct {
+			History []History `json:"history,omitempty"`
+		} `json:"bugs,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &parsedResponse); err != nil {
+		return nil, fmt.Errorf("could not unmarshal response body: %v", err)
+	}
+	if len(parsedResponse.Bugs) != 1 {
+		return nil, fmt.Errorf("did not get one bug, but %d: %v", len(parsedResponse.Bugs), parsedResponse.Bugs)
+	}
+	return parsedResponse.Bugs[0].History, nil
 }
 
 // GetExternalBugPRsOnBug retrieves external bugs on a Bug from the server

@@ -11,6 +11,7 @@ import (
 	slackgo "github.com/slack-go/slack"
 	"k8s.io/klog"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
@@ -24,6 +25,11 @@ import (
 const bugzillaEndpoint = "https://bugzilla.redhat.com"
 
 func Run(ctx context.Context, cfg config.OperatorConfig) error {
+	if cfg.CachePath != "" {
+		cache.Open(cfg.CachePath)
+	}
+	defer cache.Close()
+
 	slackClient := slackgo.New(cfg.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 
 	// This slack client is used for production notifications
@@ -172,10 +178,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	return nil
 }
 
-func newBugzillaClient(cfg *config.OperatorConfig) func() bugzilla.Client {
-	return func() bugzilla.Client {
-		return bugzilla.NewClient(func() []byte {
+func newBugzillaClient(cfg *config.OperatorConfig) func() cache.BugzillaClient {
+	return func() cache.BugzillaClient {
+		return cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
-		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword())
+		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
 	}
 }

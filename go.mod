@@ -3,6 +3,7 @@ module github.com/mfojtik/bugzilla-operator
 go 1.14
 
 require (
+	github.com/boltdb/bolt v1.3.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/eparis/bugzilla v0.0.0-20200518124032-4b8cbef6916b
 	github.com/gorilla/handlers v1.4.2
@@ -20,3 +21,5 @@ require (
 	k8s.io/component-base v0.18.2
 	k8s.io/klog v1.0.0
 )
+
+replace github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200525151909-b7660389ebf3
