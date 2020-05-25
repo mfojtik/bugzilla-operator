@@ -111,6 +111,53 @@ type Bug struct {
 	DevelWhiteboard string `json:"cf_devel_whiteboard,omitempty"`
 }
 
+type Comment struct {
+	// The globally unique ID for the comment.
+	Id int `json:"id,omitempty"`
+	// The ID of the bug that this comment is on.
+	BugId int `json:"bug_id,omitempty"`
+	// If the comment was made on an attachment, this will be the ID of that attachment. Otherwise it will be null.
+	AttachmentId *int `json:"attachment_id,omitempty"`
+	// The number of the comment local to the bug. The Description is 0, comments start with 1.
+	Count int `json:"count,omitempty"`
+	// The actual text of the comment.
+	Text string `json:"text,omitempty"`
+	// The login name of the comment's author.
+	Creator string `json:"creator,omitempty"`
+	// The time (in Bugzilla's timezone) that the comment was added.
+	Time string `json:"time,omitempty"`
+	// This is exactly same as the time key. Use this field instead of time for consistency with other methods including Get Bug and Get Attachment.
+	//
+	// 	For compatibility, time is still usable. However, please note that time may be deprecated and removed in a future release.
+	CreationTime string `json:"creation_time,omitempty"`
+	// true if this comment is private (only visible to a certain group called the "insidergroup"), false otherwise.
+	IsPrivate bool `json:"is_private,omitempty"`
+	// true if this comment needs Markdown processing; false otherwise.
+	IsMarkdown bool `json:"is_markdown,omitempty"`
+	// An array of comment tags currently set for the comment.
+	Tags []string `json:"tags,omitempty"`
+}
+
+type History struct {
+	// The date the bug activity/change happened.
+	When string `json:"when,omitempty"`
+	// The login name of the user who performed the bug change.
+	Who	string `json:"who,omitempty"`
+	// An array of Change objects which contain all the changes that happened to the bug at this time (as specified by when).
+	Changes	[]HistoryChange `json:"changes,omitempty"`
+}
+
+type HistoryChange struct {
+	// The name of the bug field that has changed.
+	FieldName	string `json:"field_name,omitempty"`
+	// The previous value of the bug field which has been deleted by the change.
+	Removed	string `json:"removed,omitempty"`
+	// The new value of the bug field which has been added by the change.
+	Added	string `json:"added,omitempty"`
+	// The ID of the attachment that was changed. This only appears if the change was to an attachment, otherwise attachment_id will not be present in this object.
+	AttachmentId *int `json:"attachment_id,omitempty"`
+}
+
 // User holds information about a user
 type User struct {
 	// The user ID for this user.

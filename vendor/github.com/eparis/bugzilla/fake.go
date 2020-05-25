@@ -56,6 +56,18 @@ func (c *Fake) GetBug(id int) (*Bug, error) {
 	return nil, &requestError{statusCode: http.StatusNotFound, message: "bug not registered in the fake"}
 }
 
+// GetBugComments retrieves the comments of a Bug from the server
+// https://bugzilla.readthedocs.io/en/latest/api/core/v1/comment.html#get-comments
+func (c *Fake) GetBugComments(id int) ([]Comment, error) {
+	panic("implement me")
+}
+
+// GetBugHistory retrieves the history of a Bug from the server
+// https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#bug-history
+func (c *Fake) GetBugHistory(id int) ([]History, error) {
+	panic("implement me")
+}
+
 // Search doesn't really work, it always returns all bugs
 func (c *Fake) Search(query Query) ([]*Bug, error) {
 	bugs := []*Bug{}

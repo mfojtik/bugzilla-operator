@@ -20,3 +20,5 @@ require (
 	k8s.io/component-base v0.18.2
 	k8s.io/klog v1.0.0
 )
+
+replace github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200525151909-b7660389ebf3
