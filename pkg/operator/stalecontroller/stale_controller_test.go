@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 )
 
@@ -155,11 +156,11 @@ func TestNewStaleController(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &bugzilla.Fake{
+			client := &cache.FakeBugzillaClient{&bugzilla.Fake{
 				Bugs: map[int]bugzilla.Bug{
 					test.bug.ID: test.bug,
 				},
-			}
+			}}
 			c := &StaleController{
 				config: config.OperatorConfig{Lists: config.BugzillaLists{
 					Stale: config.BugzillaList{

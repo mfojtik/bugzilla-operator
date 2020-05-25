@@ -7,24 +7,9 @@ import (
 
 	"github.com/eparis/bugzilla"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 )
-
-type fakeClient struct {
-	*bugzilla.Fake
-}
-
-func (f *fakeClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, error) {
-	return f.GetBug(id)
-}
-
-func (f *fakeClient) GetCachedBugComments(id int, lastChangedTime string) ([]bugzilla.Comment, error) {
-	panic("implement me")
-}
-
-func (f *fakeClient) GetCachedBugHistory(id int, lastChangedTime string) ([]bugzilla.History, error) {
-	panic("implement me")
-}
 
 func TestNewBlockersReporter_Triage(t *testing.T) {
 	tests := []struct {
@@ -116,16 +101,16 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bugIDs := []int{}
+			var bugIDs []int
 			bugMap := map[int]bugzilla.Bug{}
 			for _, b := range test.bugs {
 				bugIDs = append(bugIDs, b.ID)
 				bugMap[b.ID] = b
 			}
-			client := &fakeClient{&bugzilla.Fake{
+			var client = &cache.FakeBugzillaClient{Fake: &bugzilla.Fake{
 				Bugs: bugMap,
 			}}
-			bugs := []bugWithRevision{}
+			var bugs []bugWithRevision
 			for _, i := range bugIDs {
 				bugs = append(bugs, bugWithRevision{
 					id: i,

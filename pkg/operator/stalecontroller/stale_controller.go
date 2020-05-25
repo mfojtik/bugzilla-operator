@@ -34,8 +34,8 @@ func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient 
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
 }
 
-func (c *StaleController) handleBug(client bugzilla.Client, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
-	bugInfo, err := client.GetBug(bug.ID)
+func (c *StaleController) handleBug(client cache.BugzillaClient, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
+	bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
 	if err != nil {
 		return nil, nil, err
 	}
