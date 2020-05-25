@@ -17,7 +17,7 @@ func Open(path string) {
 			klog.Fatalf("unable to create %q: %v", path, err)
 		}
 	}
-	if !stat.IsDir() {
+	if stat != nil && !stat.IsDir() {
 		klog.Fatalf("path %q exists, but it is not directory", path)
 	}
 	db, err = bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
