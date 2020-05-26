@@ -25,7 +25,7 @@ type slackClient struct {
 	debug   bool
 }
 
-func getEmail(originalEmail string) string {
+func BugzillaToSlackEmail(originalEmail string) string {
 	realEmail, ok := peopleWithWrongSlackEmail[originalEmail]
 	if ok {
 		return realEmail
@@ -42,7 +42,7 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	if c.debug {
 		return c.MessageChannel(fmt.Sprintf("DEBUG: %q will receive:\n%s", email, message))
 	}
-	user, err := c.client.GetUserByEmail(getEmail(email))
+	user, err := c.client.GetUserByEmail(BugzillaToSlackEmail(email))
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
 )
 
@@ -29,7 +30,7 @@ func auth(cfg config.OperatorConfig, handler func(req slacker.Request, w slacker
 				return
 			}
 
-			if len(u.Profile.Email) == 0 || !users.Has(u.Profile.Email) {
+			if len(u.Profile.Email) == 0 || !users.Has(slack.BugzillaToSlackEmail(u.Profile.Email)) {
 				denied()
 				return
 			}
