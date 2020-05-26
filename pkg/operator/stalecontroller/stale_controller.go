@@ -35,7 +35,7 @@ func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient 
 }
 
 func (c *StaleController) handleBug(client cache.BugzillaClient, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
-	bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
+	bugInfo, err := client.GetBug(bug.ID)
 	if err != nil {
 		return nil, nil, err
 	}
