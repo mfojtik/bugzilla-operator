@@ -45,7 +45,7 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var errors []error
 	var closedBugLinks []string
 	for _, bug := range staleBugs {
-		bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
+		bugInfo, err := client.GetBug(bug.ID)
 		if err != nil {
 			syncCtx.Recorder().Warningf("BugInfoFailed", "Failed to query bug #%d: %v", bug.ID, err)
 			errors = append(errors, err)
