@@ -19,6 +19,12 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
+var priorityTransitions = []config.Transition{
+	{From: "high", To: "medium"},
+	{From: "medium", To: "low"},
+	{From: "unspecified", To: "low"},
+}
+
 type StaleController struct {
 	config            config.OperatorConfig
 	newBugzillaClient func() cache.BugzillaClient
@@ -34,48 +40,28 @@ func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient 
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
 }
 
-func (c *StaleController) handleBug(client cache.BugzillaClient, bug bugzilla.Bug) (*bugzilla.BugUpdate, *bugzilla.Bug, error) {
-	bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
-	if err != nil {
-		return nil, nil, err
-	}
-	klog.Infof("#%d (S:%s, P:%s, R:%s, A:%s): %s", bug.ID, bugInfo.Severity, bugInfo.Priority, bugInfo.Creator, bugInfo.AssignedTo, bug.Summary)
+func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, error) {
+	klog.Infof("#%d (S:%s, P:%s, R:%s, A:%s): %s", bug.ID, bug.Severity, bug.Priority, bug.Creator, bug.AssignedTo, bug.Summary)
 	bugUpdate := bugzilla.BugUpdate{
-		DevWhiteboard: c.config.Lists.Stale.Action.AddKeyword,
+		DevWhiteboard: "LifecycleStale",
 	}
-	var needInfoPerson []string
-	if c.config.Lists.Stale.Action.NeedInfoFromCreator {
-		needInfoPerson = append(needInfoPerson, bugInfo.Creator)
+	flags := []bugzilla.FlagChange{}
+	flags = append(flags, bugzilla.FlagChange{
+		Name:      "needinfo",
+		Status:    "?",
+		Requestee: bug.Creator,
+	})
+	bugUpdate.Flags = flags
+	bugUpdate.Priority = bugutil.DegradePriority(priorityTransitions, bug.Priority)
+	bugUpdate.Comment = &bugzilla.BugComment{
+		Body: c.config.StaleBugComment,
 	}
-	if c.config.Lists.Stale.Action.NeedInfoFromAssignee {
-		needInfoPerson = append(needInfoPerson, bugInfo.AssignedTo)
-	}
-	if len(needInfoPerson) > 0 {
-		flags := []bugzilla.FlagChange{}
-		flags = append(flags, bugzilla.FlagChange{
-			Name:      "needinfo",
-			Status:    "?",
-			Requestee: strings.Join(needInfoPerson, ","),
-		})
-		bugUpdate.Flags = flags
-	}
-	if transitions := c.config.Lists.Stale.Action.PriorityTransitions; len(transitions) > 0 {
-		bugUpdate.Priority = bugutil.DegradePriority(transitions, bugInfo.Priority)
-	}
-	if transitions := c.config.Lists.Stale.Action.SeverityTransitions; len(transitions) > 0 {
-		bugUpdate.Severity = bugutil.DegradePriority(transitions, bugInfo.Severity)
-	}
-	if len(c.config.Lists.Stale.Action.AddComment) > 0 {
-		bugUpdate.Comment = &bugzilla.BugComment{
-			Body: c.config.Lists.Stale.Action.AddComment,
-		}
-	}
-	return &bugUpdate, bugInfo, nil
+	return &bugUpdate, nil
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newBugzillaClient()
-	staleBugs, err := client.BugList(c.config.Lists.Stale.Name, c.config.Lists.Stale.SharerID)
+	staleBugs, err := getStaleBugs(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 		return err
@@ -83,12 +69,11 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 	var errors []error
 
-	klog.Infof("%d stale bugs found", len(staleBugs))
 	notifications := map[string][]string{}
 
 	staleBugLinks := []string{}
 	for _, bug := range staleBugs {
-		bugUpdate, bugInfo, err := c.handleBug(client, bug)
+		bugUpdate, err := c.handleBug(*bug)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -96,9 +81,9 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if err := client.UpdateBug(bug.ID, *bugUpdate); err != nil {
 			errors = append(errors, err)
 		}
-		staleBugLinks = append(staleBugLinks, bugutil.FormatBugMessage(*bugInfo))
-		notifications[bugInfo.AssignedTo] = append(notifications[bugInfo.AssignedTo], bugutil.FormatBugMessage(*bugInfo))
-		notifications[bugInfo.Creator] = append(notifications[bugInfo.Creator], bugutil.FormatBugMessage(*bugInfo))
+		staleBugLinks = append(staleBugLinks, bugutil.FormatBugMessage(*bug))
+		notifications[bug.AssignedTo] = append(notifications[bug.AssignedTo], bugutil.FormatBugMessage(*bug))
+		notifications[bug.Creator] = append(notifications[bug.Creator], bugutil.FormatBugMessage(*bug))
 	}
 
 	for target, messages := range notifications {
@@ -115,4 +100,50 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	return errutil.NewAggregate(errors)
+}
+
+func getStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+	return client.Search(bugzilla.Query{
+		Classification: []string{"Red Hat"},
+		Product:        []string{"OpenShift Container Platform"},
+		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
+		Component:      c.Components,
+		Advanced: []bugzilla.AdvancedQuery{
+			{
+				Field: "external_bugzilla.description",
+				Op:    "notsubstring",
+				Value: "Customer Portal",
+			},
+			{
+				Field: "external_bugzilla.description",
+				Op:    "notsubstring",
+				Value: "Github",
+			},
+			{
+				Field: "days_elapsed",
+				Op:    "greaterthaneq",
+				Value: "30",
+			},
+			{
+				Field: "bug_severity",
+				Op:    "notequals",
+				Value: "urgent",
+			},
+			{
+				Field: "short_desc",
+				Op:    "notsubstring",
+				Value: "CVE",
+			},
+		},
+		IncludeFields: []string{
+			"assigned_to",
+			"reporter",
+			"keywords",
+			"summary",
+			"severity",
+			"priority",
+			"target_release",
+			"cf_devel_whiteboard",
+		},
+	})
 }

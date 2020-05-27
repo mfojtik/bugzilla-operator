@@ -36,7 +36,7 @@ func NewResetStaleController(operatorConfig config.OperatorConfig, newBugzillaCl
 
 func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newBugzillaClient()
-	bugsToReset, err := client.BugList(c.config.Lists.ResetStale.Name, c.config.Lists.ResetStale.SharerID)
+	bugsToReset, err := getBugsToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 		return err
@@ -45,19 +45,13 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var errors []error
 	var resetBugLinks []string
 	for _, bug := range bugsToReset {
-		bugInfo, err := client.GetCachedBug(bug.ID, bugutil.LastChangeTimeToRevision(bug.LastChangeTime))
-		if err != nil {
-			syncCtx.Recorder().Warningf("BugInfoFailed", "Failed to query bug #%d: %v", bug.ID, err)
-			errors = append(errors, err)
-			continue
-		}
 		if err := client.UpdateBug(bug.ID, bugzilla.BugUpdate{
-			DevWhiteboard: c.config.Lists.ResetStale.Action.AddKeyword,
+			DevWhiteboard: "LifecycleReset",
 			Flags: []bugzilla.FlagChange{
 				{
 					Name:      "needinfo",
 					Status:    "?",
-					Requestee: bugInfo.AssignedTo,
+					Requestee: bug.AssignedTo,
 				},
 			},
 		}); err != nil {
@@ -66,14 +60,14 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 			continue
 		}
 
-		resetBugLinks = append(resetBugLinks, bugutil.GetBugURL(*bugInfo))
-		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after the _need_info?_ flag was reset:\n%s\n", bugutil.FormatBugMessage(*bugInfo))
+		resetBugLinks = append(resetBugLinks, bugutil.GetBugURL(*bug))
+		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after the _need_info?_ flag was reset:\n%s\n", bugutil.FormatBugMessage(*bug))
 
-		if err := c.slackClient.MessageEmail(bugInfo.AssignedTo, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bugInfo.AssignedTo, err)
+		if err := c.slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.AssignedTo, err)
 		}
-		if err := c.slackClient.MessageEmail(bugInfo.Creator, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bugInfo.Creator, err)
+		if err := c.slackClient.MessageEmail(bug.Creator, message); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.Creator, err)
 
 		}
 	}
@@ -84,4 +78,31 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	}
 
 	return errorutil.NewAggregate(errors)
+}
+
+func getBugsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+	return client.Search(bugzilla.Query{
+		Classification: []string{"Red Hat"},
+		Product:        []string{"OpenShift Container Platform"},
+		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
+		Component:      c.Components,
+		Advanced: []bugzilla.AdvancedQuery{
+			{
+				Field: "flagtypes.name",
+				Op:    "notsubstring",
+				Value: "needinfo",
+			},
+			{
+				Field: "cf_devel_whiteboard",
+				Op:    "substring",
+				Value: "LifecycleStale",
+			},
+		},
+		IncludeFields: []string{
+			"assigned_to",
+			"reporter",
+			"severity",
+			"priority",
+		},
+	})
 }

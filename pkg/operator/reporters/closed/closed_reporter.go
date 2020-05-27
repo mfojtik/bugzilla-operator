@@ -51,15 +51,15 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 }
 
 func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
-	closedBugs, err := client.BugList(config.Lists.Closed.Name, config.Lists.Closed.SharerID)
+	closedBugs, err := getClosedList(client, config)
 	if err != nil {
-		recorder.Warningf("BuglistFailed", err.Error())
+		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", err
 	}
 
 	resolutionMap := map[string][]bugzilla.Bug{}
 	for _, bug := range closedBugs {
-		resolutionMap[bug.Resolution] = append(resolutionMap[bug.Resolution], bug)
+		resolutionMap[bug.Resolution] = append(resolutionMap[bug.Resolution], *bug)
 	}
 
 	messageMap := map[string][]string{}
@@ -91,4 +91,30 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 
 	report := fmt.Sprintf("*%s Closed in the last 24h*:\n%s\n", bugutil.BugCountPlural(len(closedBugs), true), strings.Join(messages, "\n"))
 	return report, nil
+}
+
+func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+	return client.Search(bugzilla.Query{
+		Classification: []string{"Red Hat"},
+		Product:        []string{"OpenShift Container Platform"},
+		Status:         []string{"CLOSED"},
+		Component:      config.Components,
+		Advanced: []bugzilla.AdvancedQuery{
+			{
+				Field: "bug_status",
+				Op:    "changedafter",
+				Value: "-1d",
+			},
+		},
+		IncludeFields: []string{
+			"assigned_to",
+			"keywords",
+			"status",
+			"resolution",
+			"severity",
+			"priority",
+			"target_release",
+			"cf_devel_whiteboard",
+		},
+	})
 }

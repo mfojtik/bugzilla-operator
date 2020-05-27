@@ -110,13 +110,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			var client = &cache.FakeBugzillaClient{Fake: &bugzilla.Fake{
 				Bugs: bugMap,
 			}}
-			var bugs []bugWithRevision
-			for _, i := range bugIDs {
-				bugs = append(bugs, bugWithRevision{
-					id: i,
-				})
-			}
-			result := triageBug(client, test.target, bugs...)
+			result := triageBug(test.target, test.bugs...)
 
 			var expectedBlockers []string
 			for _, b := range test.blockerIDs {
