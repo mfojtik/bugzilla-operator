@@ -2,20 +2,55 @@
 
 ### Bugzilla Operator
 
-Operator that automate Bugzilla workflow for OpenShift engineering team.
-Specifically, in monitors bugs from [Bugzilla](https://bugzilla.redhat.com) saved search query, that track bugs which are:
+This operator provide [Bugzilla](https://bugzilla.redhat.com) automation and reporting for OpenShift engineering team, in particular:
 
-* Not *urgent* severity
-* Not having customer case or Github linked
-* Not have `LifecycleFrozen` in Developer Whiteboard
-* Days since the bug was changed is greater than 30 days
+* Flag bugs that are inactive for longer than 30 days with _LifecycleStale_ keyword in Developer Whiteboard.
+* Automatically close bugs that were flagged after 7 days for further inactivity.
+* Automatically reset the flag when activity (_needinfo?_) flag is reset.
+* Report current blocker bug counts via Slack integration to team status channel and provide provide personalized list to bug assignee
+* Report bugs closed in last 24h via Slack integration
 
-For all bugs matching criteria, it will:
+The operator reconciles on _Saved Search_ lists defined in Bugzilla, the operator admin has to create and maintain.
 
-* **Add LifecycleStale keyword** to Developer Whiteboard field
-* **Place a comment**, telling reporter and assignee that the bug has been flagged as "stale"
-* **Degrade severity** and priority of the bug: (`high->medium`, `medium->low`)
-* **Ask reporter** to react via `need_info?` flag
+The controllers in this operator use following lists:
+
+* `stale` list bugs that has been inactive for 30 days and will be flagged with _LifecycleStale_:
+    * Days since bug changed: (is greater than or equal to) 30
+    * Severity is **not** urgent
+    * Link System Description does not include _Customer Portal_ (customer bugs)
+    * Link System Description does not include _Github_ (bugs with PR's)
+    * Summary does not include string _CVE_
+    * Status is either `NEW`, `ASSIGNED` or `POST`
+    
+Every bug in `stale` list is automatically updated:
+
+* `LifecycleStale` keyword is added to _Developer Whiteboard_ field
+* Comment is added to the bug, asking reporter or assignee to take action
+* The bug priority is degraded (high->medium, medium->low)
+* The `needinfo?` flag is set for reporter
+* Both reporter and assignee are notified via Slack integration
+
+Bugs with `LifecycleStale` keyword are automatically closed after 7 days of them being flagged, unless the keyword is removed or the `needinfo?` flag is reset.
+
+* `resetStale` list bugs that has been flagged as _LifecycleStale_ but their _needinfo_ flag was reset
+    * Devel Whiteboard has _LifecycleStale_
+    * Flags does not contain the string `needinfo?`
+    * Status is either `NEW`, `ASSIGNED` or `POST`
+    
+Every bug in `resetStale` list is automatically updated:
+
+* `LifecycleReset` keyword is added to _Developer Whiteboard_ field (and `LifecycleStale` is removed)
+    
+Following lists are being used by reporters in the operator:    
+
+* `blockers`
+    * Status is either `NEW`, `ASSIGNED` or `POST`
+    * Target release points to current release or `---` or any _z-stream release
+    * Priority and Severity is not _low_
+* `closed`
+    * Status is `CLOSED`
+    * Status changed after -1d
+
 
 #### Installation
 
@@ -33,42 +68,6 @@ make install
 
 The operator is configured via YAML configuration file you have to pass via the bugzilla-operator run --config flag.
 The operator automatically restart when this config is changed. The config is available via `configmap/operator-config`.
-
-##### Example:
-
-```yaml
----
-credentials:
-  username:
-  password:
-  apiKey:
-  slackToken: 
-slackUserEmail: # email of a Slack user the operator will report events
-slackChannel: # channel name where the operator will report stats
-release:
-  currentTargetRelease: 4.5.0 # bugs with this TargetRelease and '---' are considered "blockers"
-lists:
-  blockers:
-    name: openshift-group-b-blockers
-    sharerID: 290313
-  stale:
-    name: openshift-group-b-stale
-    sharerID: 290313
-    action:
-      addKeyword: LifecycleStale
-      needInfoReporter: true
-      priorityTransitions:
-        - from: high
-          to: medium
-        - from: medium
-          to: low
-      severityTransitions:
-      addComment: >
-        This bug hasn't had any activity in the last 30 days. Maybe the problem got resolved, was a duplicate of something else, or became less pressing for some reason - or maybe it's still relevant but just hasn't been looked at yet.
-        As such, we're marking this bug as "LifecycleStale" and decreasing the severity/priority.
-        If you have further information on the current state of the bug, please update it, otherwise this bug can be closed in about 7 days. The information can be, for example, that the problem still occurs,
-        that you still want the feature, that more information is needed, or that the bug is (for whatever reason) no longer relevant.
-```
 
 License
 -------
