@@ -107,6 +107,7 @@ func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig) (
 			},
 		},
 		IncludeFields: []string{
+			"bug_id",
 			"assigned_to",
 			"keywords",
 			"status",
