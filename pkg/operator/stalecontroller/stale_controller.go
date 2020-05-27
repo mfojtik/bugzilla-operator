@@ -136,7 +136,7 @@ func getStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugz
 			},
 		},
 		IncludeFields: []string{
-			"bug_id",
+			"id",
 			"assigned_to",
 			"reporter",
 			"keywords",

@@ -102,7 +102,7 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 			},
 		},
 		IncludeFields: []string{
-			"bug_id",
+			"id",
 			"assigned_to",
 			"reporter",
 			"severity",
