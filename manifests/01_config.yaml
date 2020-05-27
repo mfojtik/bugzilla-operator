@@ -37,6 +37,11 @@ data:
       blockers:
         name: openshift-group-b-blockers
         sharerID: 290313
+      resetStale:
+        name: openshift-group-b-reset-stale
+        sharerID: 290313
+        action:
+          addKeyword: LifecycleReset
       staleClose:
         name: openshift-group-b-lifecycle-close
         sharerID: 290313
