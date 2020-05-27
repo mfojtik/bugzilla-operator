@@ -13,57 +13,26 @@ type Credentials struct {
 	SlackVerificationToken string `yaml:"slackVerificationToken"`
 }
 
-type BugzillaList struct {
-	Name     string    `yaml:"name"`
-	SharerID string    `yaml:"sharerID"`
-	Action   BugAction `yaml:"action"`
-}
-
-type BugAction struct {
-	AddComment           string       `yaml:"addComment"`
-	SetState             string       `yaml:"setState"`
-	SetResolution        string       `yaml:"setResolution"`
-	AddKeyword           string       `yaml:"addKeyword"`
-	PriorityTransitions  []Transition `yaml:"priorityTransitions"`
-	SeverityTransitions  []Transition `yaml:"severityTransitions"`
-	NeedInfoFromCreator  bool         `yaml:"needInfoFromCreator"`
-	NeedInfoFromAssignee bool         `yaml:"needInfoFromAssignee"`
-}
-
-type BugzillaLists struct {
-	// Stale list represents a list with bugs that are not changes for 30d
-	Stale BugzillaList `yaml:"stale"`
-
-	// ResetStale list bugs that were marked as stale but then the need_info flag was reset.
-	// In that case, we will remove the LifecycleStale keyword.
-	ResetStale BugzillaList `yaml:"resetStale"`
-
-	// StaleClose represents a list with bugs we tagged as LifecycleStale and they were not changed 7d after that.
-	StaleClose BugzillaList `yaml:"staleClose"`
-
-	// Blockers represents a list with bugs considered release blockers
-	Blockers BugzillaList `yaml:"blockers"`
-
-	// Closed represents a list with bugs we closed in last 24h
-	Closed BugzillaList `yaml:"closed"`
-}
-
 type Transition struct {
 	From string `yaml:"from"`
 	To   string `yaml:"to"`
 }
 
 type BugzillaRelease struct {
-	CurrentTargetRelease string `yaml:"currentTargetRelease"`
+	CurrentTargetRelease string   `yaml:"currentTargetRelease"`
+	TargetReleases       []string `yaml:"targetReleases"`
 }
 
 type Group []string
 
 type OperatorConfig struct {
-	Credentials Credentials   `yaml:"credentials"`
-	Lists       BugzillaLists `yaml:"lists"`
+	Credentials Credentials `yaml:"credentials"`
 
-	Release BugzillaRelease `yaml:"release"`
+	StaleBugComment      string `yaml:"staleBugComment"`
+	StaleBugCloseComment string `yaml:"staleBugCloseComment"`
+
+	Release    BugzillaRelease `yaml:"release"`
+	Components []string        `yaml:"components"`
 
 	Groups map[string]Group `yaml:"groups"`
 

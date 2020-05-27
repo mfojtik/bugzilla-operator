@@ -10,19 +10,18 @@ This operator provide [Bugzilla](https://bugzilla.redhat.com) automation and rep
 * Report current blocker bug counts via Slack integration to team status channel and provide provide personalized list to bug assignee
 * Report bugs closed in last 24h via Slack integration
 
-The operator reconciles on _Saved Search_ lists defined in Bugzilla, the operator admin has to create and maintain.
+#### Controllers
 
-The controllers in this operator use following lists:
+`stalecontroller` list bugs that has been inactive for 30 days and will be flagged with _LifecycleStale_:
 
-* `stale` list bugs that has been inactive for 30 days and will be flagged with _LifecycleStale_:
-    * Days since bug changed: (is greater than or equal to) 30
-    * Severity is **not** urgent
-    * Link System Description does not include _Customer Portal_ (customer bugs)
-    * Link System Description does not include _Github_ (bugs with PR's)
-    * Summary does not include string _CVE_
-    * Status is either `NEW`, `ASSIGNED` or `POST`
+* Days since bug changed: (is greater than or equal to) 30
+* Severity is **not** urgent
+* Link System Description does not include _Customer Portal_ (customer bugs)
+* Link System Description does not include _Github_ (bugs with PR's)
+* Summary does not include string _CVE_
+* Status is either `NEW`, `ASSIGNED` or `POST`
     
-Every bug in `stale` list is automatically updated:
+All bugs returned from this search query are updated as following:
 
 * `LifecycleStale` keyword is added to _Developer Whiteboard_ field
 * Comment is added to the bug, asking reporter or assignee to take action
@@ -32,21 +31,24 @@ Every bug in `stale` list is automatically updated:
 
 Bugs with `LifecycleStale` keyword are automatically closed after 7 days of them being flagged, unless the keyword is removed or the `needinfo?` flag is reset.
 
-* `resetStale` list bugs that has been flagged as _LifecycleStale_ but their _needinfo_ flag was reset
+`resetcontroller` list bugs that has been flagged as _LifecycleStale_ but their _needinfo_ flag was reset
     * Devel Whiteboard has _LifecycleStale_
     * Flags does not contain the string `needinfo?`
     * Status is either `NEW`, `ASSIGNED` or `POST`
     
-Every bug in `resetStale` list is automatically updated:
+All bugs returned from this search query are updated as following:
 
 * `LifecycleReset` keyword is added to _Developer Whiteboard_ field (and `LifecycleStale` is removed)
     
-Following lists are being used by reporters in the operator:    
+#### Reports
+
+Following reports are being delivery based on the cron schedule:
 
 * `blockers`
     * Status is either `NEW`, `ASSIGNED` or `POST`
     * Target release points to current release or `---` or any _z-stream release
     * Priority and Severity is not _low_
+
 * `closed`
     * Status is `CLOSED`
     * Status changed after -1d
