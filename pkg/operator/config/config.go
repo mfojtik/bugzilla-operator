@@ -34,6 +34,10 @@ type BugzillaLists struct {
 	// Stale list represents a list with bugs that are not changes for 30d
 	Stale BugzillaList `yaml:"stale"`
 
+	// ResetStale list bugs that were marked as stale but then the need_info flag was reset.
+	// In that case, we will remove the LifecycleStale keyword.
+	ResetStale BugzillaList `yaml:"resetStale"`
+
 	// StaleClose represents a list with bugs we tagged as LifecycleStale and they were not changed 7d after that.
 	StaleClose BugzillaList `yaml:"staleClose"`
 

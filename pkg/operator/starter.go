@@ -17,6 +17,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/informer"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
@@ -60,6 +61,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
 	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, recorder)
+
+	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
 	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
@@ -171,6 +174,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	go closedReportSchedule.Start(ctx)
 	go closedReporter.Run(ctx, 1)
 	go staleController.Run(ctx, 1)
+	go staleResetController.Run(ctx, 1)
 	go closeStaleController.Run(ctx, 1)
 	go slackerInstance.Run(ctx)
 
