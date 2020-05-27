@@ -35,7 +35,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	// This slack client is used for production notifications
 	// Be careful, this can spam people!
-	// slackProductionClient := slack.NewChannelClient(slackClient, cfg.SlackChannel, false)
+	slackProductionClient := slack.NewChannelClient(slackClient, cfg.SlackChannel, false)
 
 	// This slack client is used for debugging
 	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, true)
