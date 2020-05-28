@@ -142,6 +142,16 @@ func getStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugz
 				Op:    "notsubstring",
 				Value: "CVE",
 			},
+			{
+				Field: "keywords",
+				Op:    "notsubstring",
+				Value: "Security",
+			},
+			{
+				Field: "keywords",
+				Op:    "notsubstring",
+				Value: "Blocker",
+			},
 		},
 		IncludeFields: []string{
 			"id",
