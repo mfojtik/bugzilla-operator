@@ -60,6 +60,15 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 			continue
 		}
 
+		// in some cases, the search query return zero assignee or creator, which cause the slack messages failed to deliver.
+		// in that case, try to get the bug directly, which should populate all fields.
+		if len(bug.AssignedTo) == 0 || len(bug.Creator) == 0 {
+			b, err := client.GetBug(bug.ID)
+			if err == nil {
+				bug = b
+			}
+		}
+
 		resetBugLinks = append(resetBugLinks, bugutil.GetBugURL(*bug))
 		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after the _need_info?_ flag was reset:\n%s\n", bugutil.FormatBugMessage(*bug))
 

@@ -63,21 +63,30 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 			continue
 		}
 
+		// in some cases, the search query return zero assignee or creator, which cause the slack messages failed to deliver.
+		// in that case, try to get the bug directly, which should populate all fields.
+		if len(bug.AssignedTo) == 0 || len(bug.Creator) == 0 {
+			b, err := client.GetBug(bug.ID)
+			if err == nil {
+				bug = b
+			}
+		}
+
 		closedBugLinks = append(closedBugLinks, bugutil.GetBugURL(*bug))
 		message := fmt.Sprintf("Following bug was automatically *closed* after being marked as _LifecycleStale_ for 7 days without update:\n%s\n", bugutil.FormatBugMessage(*bug))
 
 		if err := c.slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.AssignedTo, err)
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to assignee %q: %v", bug.AssignedTo, err)
 		}
 		if err := c.slackClient.MessageEmail(bug.Creator, message); err != nil {
-			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.Creator, err)
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to reporter %q: %v", bug.Creator, err)
 
 		}
 	}
 
 	// Notify admin
 	if len(closedBugLinks) > 0 {
-		c.slackDebugClient.MessageChannel(fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ",")))
+		c.slackDebugClient.MessageChannel(fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ", ")))
 	}
 
 	return errorutil.NewAggregate(errors)
