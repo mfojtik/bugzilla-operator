@@ -3,6 +3,7 @@ package blockers
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/eparis/bugzilla"
@@ -42,12 +43,15 @@ func NewBlockersReporter(operatorConfig config.OperatorConfig, scheduleInformer 
 }
 
 type triageResult struct {
-	blockers           []string
-	needTriage         []string
-	needUpcomingSprint []string
-	staleCount         int
-	priorityCount      map[string]int
-	severityCount      map[string]int
+	blockers              []string
+	blockerIDs            []int
+	needTriage            []string
+	needTriageIDs         []int
+	needUpcomingSprint    []string
+	needUpcomingSprintIDs []int
+	staleCount            int
+	priorityCount         map[string]int
+	severityCount         map[string]int
 }
 
 func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
@@ -67,6 +71,7 @@ func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
 			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(bug))
+			r.needUpcomingSprintIDs = append(r.needUpcomingSprintIDs, bug.ID)
 		}
 
 		targetRelease := "---"
@@ -76,10 +81,12 @@ func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 
 		if bug.Severity == "unspecified" || targetRelease == "---" {
 			r.needTriage = append(r.needTriage, bugutil.FormatBugMessage(bug))
+			r.needTriageIDs = append(r.needTriageIDs, bug.ID)
 		}
 
 		if targetRelease == currentTargetRelease || targetRelease == "---" {
 			r.blockers = append(r.blockers, bugutil.FormatBugMessage(bug))
+			r.blockerIDs = append(r.blockerIDs, bug.ID)
 		}
 	}
 
@@ -87,23 +94,29 @@ func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 }
 
 type notificationMap struct {
-	blockers       map[string][]string
-	triage         map[string][]string
-	upcomingSprint map[string][]string
-	priorityCount  map[string]int
-	severityCount  map[string]int
-	staleCount     int
+	blockers   map[string][]string
+	blockerIDs map[string][]int
+
+	needTriage    map[string][]string
+	needTriageIDs map[string][]int
+
+	upcomingSprint    map[string][]string
+	upcomingSprintIDs map[string][]int
+
+	priorityCount map[string]int
+	severityCount map[string]int
+	staleCount    int
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newBugzillaClient()
 
-	channelReport, triageResult, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
+	channelReport, triagedBugs, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
 	if err != nil {
 		return err
 	}
 
-	for person, notifications := range triageResult.blockers {
+	for person, notifications := range triagedBugs.blockers {
 		if len(notifications) == 0 {
 			continue
 		}
@@ -113,7 +126,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		}
 	}
 
-	for assignee, notifications := range triageResult.triage {
+	for assignee, notifications := range triagedBugs.needTriage {
 		if len(notifications) == 0 {
 			continue
 		}
@@ -128,7 +141,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 
 	// send debug stats
-	c.sendStatsForPeople(triageResult.blockers, triageResult.triage, triageResult.upcomingSprint)
+	c.sendStatsForPeople(*triagedBugs)
 	return nil
 }
 
@@ -175,11 +188,14 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	}
 
 	triageResult := &notificationMap{
-		blockers:       make(map[string][]string),
-		triage:         make(map[string][]string),
-		upcomingSprint: make(map[string][]string),
-		priorityCount:  make(map[string]int),
-		severityCount:  make(map[string]int),
+		blockers:          make(map[string][]string),
+		blockerIDs:        make(map[string][]int),
+		needTriage:        make(map[string][]string),
+		needTriageIDs:     make(map[string][]int),
+		upcomingSprint:    make(map[string][]string),
+		upcomingSprintIDs: make(map[string][]int),
+		priorityCount:     make(map[string]int),
+		severityCount:     make(map[string]int),
 	}
 
 	peopleBugsMap := map[string][]bugzilla.Bug{}
@@ -191,8 +207,11 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		result := triageBug(config.Release.CurrentTargetRelease, assignedBugs...)
 
 		triageResult.blockers[person] = result.blockers
-		triageResult.triage[person] = result.needTriage
+		triageResult.blockerIDs[person] = result.blockerIDs
+		triageResult.needTriage[person] = result.needTriage
+		triageResult.needTriageIDs[person] = result.needTriageIDs
 		triageResult.upcomingSprint[person] = result.needUpcomingSprint
+		triageResult.needTriageIDs[person] = result.needTriageIDs
 
 		for severity, count := range result.severityCount {
 			triageResult.severityCount[severity] += count
@@ -207,7 +226,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		config.Release.CurrentTargetRelease,
 		len(blockerBugs),
 		triageResult.blockers,
-		triageResult.triage,
+		triageResult.needTriage,
 		triageResult.upcomingSprint,
 		triageResult.severityCount,
 		triageResult.priorityCount,
@@ -218,21 +237,33 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	return report, triageResult, nil
 }
 
-func (c *BlockersReporter) sendStatsForPeople(blockers, triage, upcomingSprint map[string][]string) {
+func makeBugzillaLink(hrefText string, ids ...int) string {
+	u, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?f1=bug_id&list_id=11100046&o1=anyexact&query_format=advanced")
+	e := u.Query()
+	stringIds := make([]string, len(ids))
+	for i := range stringIds {
+		stringIds[i] = fmt.Sprintf("%d", ids[i])
+	}
+	e.Add("v1", strings.Join(stringIds, ","))
+	u.RawQuery = e.Encode()
+	return fmt.Sprintf("<%s|%s>", u.String(), hrefText)
+}
+
+func (c *BlockersReporter) sendStatsForPeople(triage notificationMap) {
 	var messages []string
-	for person, b := range blockers {
+	for person, b := range triage.blockers {
 		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d blockers", person, len(b)))
+			messages = append(messages, fmt.Sprintf("> %s: %d blockers", makeBugzillaLink(person, triage.blockerIDs[person]...), len(b)))
 		}
 	}
-	for person, b := range triage {
+	for person, b := range triage.needTriage {
 		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d to triage", person, len(b)))
+			messages = append(messages, fmt.Sprintf("> %s: %d to needTriage", makeBugzillaLink(person, triage.needTriageIDs[person]...), len(b)))
 		}
 	}
-	for person, b := range upcomingSprint {
+	for person, b := range triage.upcomingSprint {
 		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d to apply _UpcomingSprint_", person, len(b)))
+			messages = append(messages, fmt.Sprintf("> %s: %d to apply _UpcomingSprint_", makeBugzillaLink(person, triage.upcomingSprintIDs[person]...), len(b)))
 		}
 	}
 	c.slackDebugClient.MessageChannel(strings.Join(messages, "\n"))
@@ -278,7 +309,7 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers, triage, 
 		fmt.Sprintf("> %s Release Blockers Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease,
 			totalTargetBlockerCount),
 		fmt.Sprintf("> Active Bugs Without _UpcomingSprint_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-blockers-upcoming&sharer_id=290313|%d>", needUpcomingSprint),
-		fmt.Sprintf("> Untriaged Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-triage&sharer_id=290313|%d>", totalTriageCount),
+		fmt.Sprintf("> Untriaged Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-needTriage&sharer_id=290313|%d>", totalTriageCount),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-staleCount&sharer_id=290313|%d>", stale),
 	}
 }
