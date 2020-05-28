@@ -59,7 +59,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			triageIDs:  []int{},
 		},
 		{
-			name:   "bug target is not set and need triage",
+			name:   "bug target is not set and need needTriage",
 			target: "4.5.0",
 			bugs: []bugzilla.Bug{
 				{
@@ -72,7 +72,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			triageIDs:  []int{1},
 		},
 		{
-			name:   "bug target and severity is not set and need triage",
+			name:   "bug target and severity is not set and need needTriage",
 			target: "4.5.0",
 			bugs: []bugzilla.Bug{
 				{
@@ -85,7 +85,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			triageIDs:  []int{1},
 		},
 		{
-			name:   "bug severity is not set, but it is a blocker and need triage",
+			name:   "bug severity is not set, but it is a blocker and need needTriage",
 			target: "4.5.0",
 			bugs: []bugzilla.Bug{
 				{
@@ -128,7 +128,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 				t.Errorf("expected:\n%s\n as blockers, got:\n%s", strings.Join(expectedBlockers, "\n"), strings.Join(result.blockers, "\n"))
 			}
 			if !reflect.DeepEqual(result.needTriage, expectedTriage) {
-				t.Errorf("expected:\n%s\n need triage, got:\n%s", strings.Join(expectedTriage, "\n"), strings.Join(result.needTriage, "\n"))
+				t.Errorf("expected:\n%s\n need needTriage, got:\n%s", strings.Join(expectedTriage, "\n"), strings.Join(result.needTriage, "\n"))
 			}
 		})
 	}
