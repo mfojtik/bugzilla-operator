@@ -61,13 +61,6 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 			Comment: &bugzilla.BugComment{
 				Body: "The LifecycleStale keyword was removed, because the needinfo? flag was reset or the bug received blocker/security keyword.\nThe bug assignee was notified.",
 			},
-			Flags: []bugzilla.FlagChange{
-				{
-					Name:      "needinfo",
-					Status:    "?",
-					Requestee: bug.AssignedTo,
-				},
-			},
 		}); err != nil {
 			syncCtx.Recorder().Warningf("BugCloseFailed", "Failed to close bug #%d: %v", bug.ID, err)
 			errors = append(errors, err)
@@ -112,12 +105,12 @@ func getKeywordsBugsToReset(client cache.BugzillaClient, c config.OperatorConfig
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "keywords",
-				Op:    "notsubstring",
+				Op:    "substring",
 				Value: "Blocker",
 			},
 			{
 				Field: "keywords",
-				Op:    "notsubstring",
+				Op:    "substring",
 				Value: "Security",
 			},
 			{
