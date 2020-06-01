@@ -147,6 +147,11 @@ func getGotInfoBugsToReset(client cache.BugzillaClient, c config.OperatorConfig)
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
+			{
+				Field: "cf_devel_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleRotten",
+			},
 		},
 		IncludeFields: []string{
 			"id",
