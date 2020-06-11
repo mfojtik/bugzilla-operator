@@ -114,7 +114,7 @@ func getKeywordsBugsToReset(client cache.BugzillaClient, c config.OperatorConfig
 				Value: "Security",
 			},
 			{
-				Field: "cf_devel_whiteboard",
+				Field: "whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
@@ -143,12 +143,12 @@ func getGotInfoBugsToReset(client cache.BugzillaClient, c config.OperatorConfig)
 				Value: "needinfo",
 			},
 			{
-				Field: "cf_devel_whiteboard",
+				Field: "whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 			{
-				Field: "cf_devel_whiteboard",
+				Field: "whiteboard",
 				Op:    "notsubstring",
 				Value: "LifecycleRotten",
 			},

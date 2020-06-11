@@ -60,7 +60,7 @@ func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 		severityCount: map[string]int{},
 	}
 	for _, bug := range bugs {
-		if strings.Contains(bug.DevelWhiteboard, "LifecycleStale") {
+		if strings.Contains(bug.Whiteboard, "LifecycleStale") {
 			r.staleCount++
 			continue
 		}
@@ -175,7 +175,7 @@ func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig) 
 			"severity",
 			"priority",
 			"target_release",
-			"cf_devel_whiteboard",
+			"whiteboard",
 		},
 	})
 }

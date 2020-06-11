@@ -43,7 +43,7 @@ func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient 
 func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, error) {
 	klog.Infof("#%d (S:%s, P:%s, R:%s, A:%s): %s", bug.ID, bug.Severity, bug.Priority, bug.Creator, bug.AssignedTo, bug.Summary)
 	bugUpdate := bugzilla.BugUpdate{
-		DevWhiteboard: "LifecycleStale",
+		Whiteboard: "LifecycleStale",
 	}
 	flags := []bugzilla.FlagChange{}
 	flags = append(flags, bugzilla.FlagChange{
@@ -162,7 +162,7 @@ func getStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugz
 			"severity",
 			"priority",
 			"target_release",
-			"cf_devel_whiteboard",
+			"whiteboard",
 		},
 	})
 }
