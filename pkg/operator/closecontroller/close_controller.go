@@ -105,7 +105,7 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 				Value: "7",
 			},
 			{
-				Field: "cf_devel_whiteboard",
+				Field: "whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},

@@ -115,7 +115,7 @@ func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig) (
 			"severity",
 			"priority",
 			"target_release",
-			"cf_devel_whiteboard",
+			"whiteboard",
 		},
 	})
 }
