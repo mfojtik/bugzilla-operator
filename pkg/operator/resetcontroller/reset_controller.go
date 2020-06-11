@@ -40,19 +40,24 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var bugsToReset []*bugzilla.Bug
 	var errors []error
 
-	gotInfoBugs, err := getGotInfoBugsToReset(client, c.config)
+	gotInfoBugs, err := getBugsWithNoNeedInfoToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("GotInfoSearchFailed", err.Error())
 		errors = append(errors, err)
 	}
 	bugsToReset = append(bugsToReset, gotInfoBugs...)
 
-	gotKeywordBugs, err := getKeywordsBugsToReset(client, c.config)
+	gotKeywordBugs, err := getBugsWithKeywordsToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("GotKeywordSearchFailed", err.Error())
 	}
-
 	bugsToReset = append(bugsToReset, gotKeywordBugs...)
+
+	gotStatusBugs, err := getInvalidStatusBugsToReset(client, c.config)
+	if err != nil {
+		syncCtx.Recorder().Warningf("GotStatusSearchFailed", err.Error())
+	}
+	bugsToReset = append(bugsToReset, gotStatusBugs...)
 
 	var resetBugLinks []string
 	for _, bug := range bugsToReset {
@@ -96,7 +101,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	return errorutil.NewAggregate(errors)
 }
 
-func getKeywordsBugsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
@@ -130,7 +135,35 @@ func getKeywordsBugsToReset(client cache.BugzillaClient, c config.OperatorConfig
 	})
 }
 
-func getGotInfoBugsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+	return client.Search(bugzilla.Query{
+		Classification: []string{"Red Hat"},
+		Product:        []string{"OpenShift Container Platform"},
+		Status:         []string{"MODIFIED", "VERIFIED", "ON_QA"},
+		Component:      c.Components,
+		Advanced: []bugzilla.AdvancedQuery{
+			{
+				Field: "whiteboard",
+				Op:    "substring",
+				Value: "LifecycleStale",
+			},
+			{
+				Field: "whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleRotten",
+			},
+		},
+		IncludeFields: []string{
+			"id",
+			"assigned_to",
+			"reporter",
+			"severity",
+			"priority",
+		},
+	})
+}
+
+func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
