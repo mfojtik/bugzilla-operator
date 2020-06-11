@@ -142,18 +142,18 @@ type History struct {
 	// The date the bug activity/change happened.
 	When string `json:"when,omitempty"`
 	// The login name of the user who performed the bug change.
-	Who	string `json:"who,omitempty"`
+	Who string `json:"who,omitempty"`
 	// An array of Change objects which contain all the changes that happened to the bug at this time (as specified by when).
-	Changes	[]HistoryChange `json:"changes,omitempty"`
+	Changes []HistoryChange `json:"changes,omitempty"`
 }
 
 type HistoryChange struct {
 	// The name of the bug field that has changed.
-	FieldName	string `json:"field_name,omitempty"`
+	FieldName string `json:"field_name,omitempty"`
 	// The previous value of the bug field which has been deleted by the change.
-	Removed	string `json:"removed,omitempty"`
+	Removed string `json:"removed,omitempty"`
 	// The new value of the bug field which has been added by the change.
-	Added	string `json:"added,omitempty"`
+	Added string `json:"added,omitempty"`
 	// The ID of the attachment that was changed. This only appears if the change was to an attachment, otherwise attachment_id will not be present in this object.
 	AttachmentId *int `json:"attachment_id,omitempty"`
 }
@@ -224,11 +224,13 @@ type BugUpdate struct {
 	Resolution    string       `json:"resolution,omitempty"`
 	TargetRelease string       `json:"target_release,omitempty"`
 	DevWhiteboard string       `json:"cf_devel_whiteboard,omitempty"`
+	Whiteboard    string       `json:"whiteboard,omitempty"`
 	Comment       *BugComment  `json:"comment,omitempty"`
 	Keywords      *BugKeywords `json:"keywords,omitempty"`
 	Flags         []FlagChange `json:"flags,omitempty"`
 	Priority      string       `json:"priority,omitempty"`
 	Severity      string       `json:"severity,omitempty"`
+	MinorUpdate   bool         `json:"minor_update,omitempty"`
 }
 
 // ExternalBug contains details about an external bug linked to a Bugzilla bug.
@@ -294,6 +296,8 @@ type Query struct {
 	Severity       []string        `json:"severity,omitempty"`
 	Keywords       []string        `json:"keywords,omitempty"`
 	KeywordsType   string          `json:"keywords_type,omitempty"`
+	BugIDs         []string        `json:"bug_ids,omitempty"`
+	BugIDsType     string          `json:"bug_ids_type,omitempty"`
 	Component      []string        `json:"component,omitempty"`
 	TargetRelease  []string        `json:"target_release,omitempty"`
 	Advanced       []AdvancedQuery `json:"advanced,omitempty"`

@@ -44,9 +44,21 @@ func (q *Query) Values() *url.Values {
 	}
 	for _, val := range q.Keywords {
 		values.Add("keywords", val)
+		if q.KeywordsType == "" {
+			panic("Invalid query: Keyworrds set but KeywordsType unset")
+		}
 	}
 	if q.KeywordsType != "" {
 		values.Add("keywords_type", q.KeywordsType)
+	}
+	for _, val := range q.BugIDs {
+		values.Add("bug_id", val)
+		if q.BugIDsType == "" {
+			panic("Invalid query: BugIDs set but BugIDsType unset")
+		}
+	}
+	if q.BugIDsType != "" {
+		values.Add("bug_id_type", q.BugIDsType)
 	}
 	for _, val := range q.TargetRelease {
 		values.Add("target_release", val)
