@@ -9,7 +9,7 @@ require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/openshift/build-machinery-go v0.0.0-20200512074546-3744767c4131
-	github.com/openshift/library-go v0.0.0-20200615081433-38362088d682
+	github.com/openshift/library-go v0.0.0-20200615120640-a506fa41d3fb
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.1.3 // indirect
 	github.com/robfig/cron/v3 v3.0.1
