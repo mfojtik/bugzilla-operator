@@ -12,7 +12,6 @@ require (
 	github.com/openshift/library-go v0.0.0-20200615120640-a506fa41d3fb
 	github.com/prometheus/common v0.10.0 // indirect
 	github.com/prometheus/procfs v0.1.3 // indirect
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/shomali11/commander v0.0.0-20191122162317-51bc574c29ba
 	github.com/shomali11/proper v0.0.0-20190608032528-6e70a05688e7
 	github.com/slack-go/slack v0.6.4
@@ -22,7 +21,6 @@ require (
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/apimachinery v0.18.3
-	k8s.io/client-go v0.18.3
 	k8s.io/component-base v0.18.3
 	k8s.io/klog v1.0.0
 )
