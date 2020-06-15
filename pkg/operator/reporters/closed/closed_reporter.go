@@ -23,13 +23,13 @@ type BlockersReporter struct {
 	slackClient       slack.ChannelClient
 }
 
-func NewClosedReporter(operatorConfig config.OperatorConfig, scheduleInformer factory.Informer, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,
 		slackClient:       slackClient,
 	}
-	return factory.New().WithSync(c.sync).WithInformers(scheduleInformer).ToController("BlockersReporter", recorder)
+	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
