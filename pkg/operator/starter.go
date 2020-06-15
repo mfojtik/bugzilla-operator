@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	slackgo "github.com/slack-go/slack"
 	"k8s.io/klog"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/informer"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -67,18 +67,16 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
 	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
 
-	// blocker bugs report nag people about their blocker bugs every second week between Tue->Thur
-	blockerReportSchedule := informer.NewTimeInformer("blocker-bugs")
-
-	blockerReportSchedule.Schedule("CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4")
-	blockerReportSchedule.Schedule("CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4")
-	blockerReporter := blockers.NewBlockersReporter(cfg, blockerReportSchedule, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
+	blockerReporter := blockers.NewBlockersReporter([]string{
+		"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
+		"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
+	}, cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
-	closedReportSchedule := informer.NewTimeInformer("closed-bugs")
-	closedReportSchedule.Schedule("CRON_TZ=Europe/Prague 35 9 * * 1-5")
-	closedReportSchedule.Schedule("CRON_TZ=America/New_York 35 9 * * 1-5")
-	closedReporter := closed.NewClosedReporter(cfg, closedReportSchedule, newBugzillaClient(&cfg), slackProductionClient, recorder)
+	closedReporter := closed.NewClosedReporter([]string{
+		"CRON_TZ=Europe/Prague 35 9 * * 1-5",
+		"CRON_TZ=America/New_York 35 9 * * 1-5",
+	}, cfg, newBugzillaClient(&cfg), slackProductionClient, recorder)
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
 	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
@@ -86,9 +84,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
 
-			reports := map[string]func(){
-				"blocker-bugs": blockerReportSchedule.RunNow,
-				"closed-bugs":  closedReportSchedule.RunNow,
+			reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
+				"blocker-bugs": blockerReporter.Sync,
+				"closed-bugs":  closedReporter.Sync,
 
 				// don't forget to also add new reports down in the direct report command
 			}
@@ -103,7 +101,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				w.Reply(strings.Join(names, "\n"))
 			default:
 				if report, ok := reports[job]; ok {
-					report()
+					if err := report(ctx, factory.NewSyncContext(job, recorder)); err != nil {
+						recorder.Warningf("ReportError", "Job reported error: %v", err)
+						return
+					}
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
 						slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
@@ -169,9 +170,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		},
 	})
 
-	go blockerReportSchedule.Start(ctx)
 	go blockerReporter.Run(ctx, 1)
-	go closedReportSchedule.Start(ctx)
 	go closedReporter.Run(ctx, 1)
 	go staleController.Run(ctx, 1)
 	go staleResetController.Run(ctx, 1)
