@@ -73,17 +73,17 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 
 			var firstTeamCommentor string
 			for _, c := range comments {
-				creator := c.Creator
-				if !strings.ContainsRune(creator, '@') {
-					creator = creator + "@redhat.com"
+				commentor := c.Creator
+				if !strings.ContainsRune(commentor, '@') {
+					commentor = commentor + "@redhat.com"
 				}
 				if strings.Contains(c.Text, "LifecycleStale") {
 					continue
 				}
-				if nonLeads.Has(creator) && firstTeamCommentor == "" && b.Creator != creator {
-					firstTeamCommentor = creator
+				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
+					firstTeamCommentor = commentor
 				}
-				if creator == comp.Lead {
+				if commentor == comp.Lead {
 					continue nextBug
 				}
 			}
