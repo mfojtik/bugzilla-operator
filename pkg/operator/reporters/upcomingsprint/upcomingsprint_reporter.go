@@ -11,29 +11,30 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type UpcomingSprintReporter struct {
+	controller.Controller
 	config            config.OperatorConfig
-	newBugzillaClient func() cache.BugzillaClient
-	slackClient       slack.ChannelClient
 	components        []string
 }
 
-func NewUpcomingSprintReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient,
+func NewUpcomingSprintReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient,
 	recorder events.Recorder) factory.Controller {
 	c := &UpcomingSprintReporter{
+		Controller: controller.NewController(newBugzillaClient, slackClient, slackDebugClient),
 		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
 		components:        components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("UpcomingSprintReporter", recorder)
 }
 
 func (c *UpcomingSprintReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
+
 	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config, c.components)
 	if err != nil {
 		return err
@@ -42,7 +43,7 @@ func (c *UpcomingSprintReporter) sync(ctx context.Context, syncCtx factory.SyncC
 		return nil
 	}
 
-	if err := c.slackClient.MessageChannel(report); err != nil {
+	if err := slackClient.MessageChannel(report); err != nil {
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
 		return err
 	}

@@ -15,26 +15,23 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type FirstTeamCommentController struct {
-	config            config.OperatorConfig
-	newBugzillaClient func() cache.BugzillaClient
-	slackClient       slack.ChannelClient
+	controller.Controller
+	config config.OperatorConfig
 }
 
-func NewFirstTeamCommentController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
-	c := &FirstTeamCommentController{
-		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
-	}
+func NewFirstTeamCommentController(operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+	c := &FirstTeamCommentController{controller.NewController(newBugzillaClient, slackClient, slackDebugClient), operatorConfig}
 	return factory.New().WithSync(c.sync).ResyncEvery(2*time.Hour).ToController("FirstTeamCommentController", recorder)
 }
 
 func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
 	var errors []error
 
 	for name, comp := range c.config.Components {
@@ -121,16 +118,11 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			}
 
 			klog.Infof("%s commented on #%v, but lead %s hasn't.\n", firstTeamCommentor, b.ID, comp.Lead)
-			c.slackClient.MessageChannel(fmt.Sprintf("FirstTeamCommentController would reassign %s bug <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q> to %s due to comments, but lead %s hasn't commented.", name, b.ID, b.ID, b.Summary, firstTeamCommentor, comp.Lead))
-
-			// TODO: enable bugzilla call
-			/*
-				if err := client.UpdateBug(b.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: firstTeamCommentor}); err != nil {
-					klog.Errorf("Failed to assign bug #%v to %s", b.ID)
-					continue
-				}
-				c.slackClient.MessageEmail(comp.Lead, fmt.Sprintf("Assigned %s bug <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q> to %s due to comments.", name, b.ID, b.ID, b.Summary, firstTeamCommentor))
-			*/
+			if err := client.UpdateBug(b.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: firstTeamCommentor}); err != nil {
+				klog.Errorf("Failed to assign bug #%v to %s", b.ID, firstTeamCommentor)
+				continue
+			}
+			slackClient.MessageEmail(comp.Lead, fmt.Sprintf("Assigned %s bug <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q> to %s due to comments.", name, b.ID, b.ID, b.Summary, firstTeamCommentor))
 		}
 	}
 

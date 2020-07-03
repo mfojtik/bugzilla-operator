@@ -14,28 +14,28 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type BlockersReporter struct {
-	config            config.OperatorConfig
-	newBugzillaClient func() cache.BugzillaClient
-	slackClient       slack.ChannelClient
-	components        []string
+	controller.Controller
+	config     config.OperatorConfig
+	components []string
 }
 
-func NewClosedReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
-		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
+		Controller: controller.NewController(newBugzillaClient, slackClient, slackDebugClient),
+		config:     operatorConfig,
 		components: components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
 	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config, c.components)
 	if err != nil {
 		return err
@@ -44,7 +44,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		return nil
 	}
 
-	if err := c.slackClient.MessageChannel(report); err != nil {
+	if err := slackClient.MessageChannel(report); err != nil {
 		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
 		return err
 	}

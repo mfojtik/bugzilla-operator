@@ -36,10 +36,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackClient := slackgo.New(cfg.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 
 	// This slack client is used for debugging
-	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, true)
+	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, true)
 
 	// This slack client posts only to the admin channel
-	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, false)
+	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
 
 	recorder := slack.NewRecorder(slackDebugClient, "BugzillaOperator")
 
@@ -61,74 +61,86 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
 	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
 	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
-	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
 	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
-	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
 	var blockerReporters []factory.Controller
 	var closedReporters []factory.Controller
 	for _, ar := range cfg.Schedules {
-		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, false)
+		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
 				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
 					ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
 			case "closed-bugs":
-				closedReporters = append(closedReporters, closed.NewClosedReporter(ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, recorder))
+				closedReporters = append(closedReporters, closed.NewClosedReporter(ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
 			}
 		}
 	}
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
-	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
-		Description: "Trigger a job to run.",
-		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
-			job := req.StringParam("job", "")
+	triggerDef := func(desc string, debug bool) *slacker.CommandDefinition {
+		return &slacker.CommandDefinition{
+			Description: desc,
+			Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
+				job := req.StringParam("job", "")
 
-			reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
-				"blocker-bugs":    allBlockersReporter.Sync,
-				"closed-bugs":     allClosedReporter.Sync,
-				"upcoming-sprint": allUpcomingSprintReporter.Sync,
+				reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
+					"blocker-bugs":       allBlockersReporter.Sync,
+					"closed-bugs":        allClosedReporter.Sync,
+					"upcoming-sprint":    allUpcomingSprintReporter.Sync,
+					"stale":              staleController.Sync,
+					"stale-reset":        staleResetController.Sync,
+					"close-stale":        closeStaleController.Sync,
+					"first-team-comment": firstTeamCommentController.Sync,
 
-				// don't forget to also add new reports down in the direct report command
-			}
-
-			switch job {
-			case "help", "":
-				names := []string{}
-				for s := range reports {
-					names = append(names, s)
+					// don't forget to also add new reports down in the direct report command
 				}
-				sort.Strings(names)
-				w.Reply(strings.Join(names, "\n"))
-			default:
-				if report, ok := reports[job]; ok {
-					if err := report(ctx, factory.NewSyncContext(job, recorder)); err != nil {
-						recorder.Warningf("ReportError", "Job reported error: %v", err)
-						return
+
+				switch job {
+				case "help", "":
+					names := []string{}
+					for s := range reports {
+						names = append(names, s)
 					}
-					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
-						slackgo.MsgOptionPostEphemeral(req.Event().User),
-						slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
-					if err != nil {
-						klog.Error(err)
+					sort.Strings(names)
+					w.Reply(strings.Join(names, "\n"))
+				default:
+					if report, ok := reports[job]; ok {
+						ctx := ctx
+						if debug {
+							ctx = context.WithValue(ctx, "debug", debug)
+						}
+						if err := report(ctx, factory.NewSyncContext(job, recorder)); err != nil {
+							recorder.Warningf("ReportError", "Job reported error: %v", err)
+							return
+						}
+						_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+							slackgo.MsgOptionPostEphemeral(req.Event().User),
+							slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
+						if err != nil {
+							klog.Error(err)
+						}
+					} else {
+						w.Reply(fmt.Sprintf("Unknown report %q", job))
 					}
-				} else {
-					w.Reply(fmt.Sprintf("Unknown report %q", job))
 				}
-			}
-		}, "group:admins"),
-	})
+			}, "group:admins"),
+		}
+	}
+	slackerInstance.Command("admin trigger <job>", triggerDef("Trigger a job to run.", false))
+	slackerInstance.Command("admin debug <job>", triggerDef("Trigger a job to run in debug mode.", true))
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: "Run a report and print result here.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
@@ -173,7 +185,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					klog.Error(err)
 				}
 
-				reply, err := report(context.TODO(), newBugzillaClient(&cfg)())
+				reply, err := report(context.TODO(), newBugzillaClient(&cfg)(true))
 				if err != nil {
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
@@ -207,10 +219,14 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	return nil
 }
 
-func newBugzillaClient(cfg *config.OperatorConfig) func() cache.BugzillaClient {
-	return func() cache.BugzillaClient {
-		return cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
+func newBugzillaClient(cfg *config.OperatorConfig) func(debug bool) cache.BugzillaClient {
+	return func(debug bool) cache.BugzillaClient {
+		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
 		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
+		if debug {
+			return &loggingReadOnlyClient{delegate: c}
+		}
+		return c
 	}
 }

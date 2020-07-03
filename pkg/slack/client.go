@@ -16,13 +16,14 @@ var peopleWithWrongSlackEmail = map[string]string{
 
 type ChannelClient interface {
 	MessageChannel(message string) error
+	MessageAdminChannel(message string) error
 	MessageEmail(email, message string) error
 }
 
 type slackClient struct {
-	client  *slack.Client
-	channel string
-	debug   bool
+	client                *slack.Client
+	channel, adminChannel string
+	debug                 bool
 }
 
 func BugzillaToSlackEmail(originalEmail string) string {
@@ -35,6 +36,11 @@ func BugzillaToSlackEmail(originalEmail string) string {
 
 func (c *slackClient) MessageChannel(message string) error {
 	_, _, err := c.client.PostMessage(c.channel, slack.MsgOptionText(message, false))
+	return err
+}
+
+func (c *slackClient) MessageAdminChannel(message string) error {
+	_, _, err := c.client.PostMessage(c.adminChannel, slack.MsgOptionText(message, false))
 	return err
 }
 
@@ -54,11 +60,12 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	return err
 }
 
-func NewChannelClient(client *slack.Client, channel string, debug bool) ChannelClient {
+func NewChannelClient(client *slack.Client, channel, adminChannel string, debug bool) ChannelClient {
 	c := &slackClient{
-		channel: channel,
-		client:  client,
-		debug:   debug,
+		channel:      channel,
+		adminChannel: adminChannel,
+		client:       client,
+		debug:        debug,
 	}
 	return c
 }
