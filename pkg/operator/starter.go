@@ -10,6 +10,7 @@ import (
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	slackgo "github.com/slack-go/slack"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
@@ -200,20 +201,36 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		},
 	})
 
-	go allBlockersReporter.Run(ctx, 1)
-	for _, r := range blockerReporters {
-		go r.Run(ctx, 1)
+	seen := []string{}
+	disabled := sets.NewString(cfg.DisabledControllers...)
+	all := append(append(
+		[]factory.Controller{
+			allBlockersReporter,
+			allClosedReporter,
+			staleController,
+			staleResetController,
+			closeStaleController,
+			firstTeamCommentController,
+		},
+		blockerReporters...),
+		closedReporters...)
+	for _, c := range all {
+		seen = append(seen, c.Name())
+		if disabled.Has(c.Name()) {
+			continue
+		}
+		c.Run(ctx, 1)
 	}
-	go allClosedReporter.Run(ctx, 1)
-	for _, r := range closedReporters {
-		go r.Run(ctx, 1)
-	}
-	go staleController.Run(ctx, 1)
-	go staleResetController.Run(ctx, 1)
-	go closeStaleController.Run(ctx, 1)
-	go firstTeamCommentController.Run(ctx, 1)
 
 	go slackerInstance.Run(ctx)
+
+	// sanity check list of disabled controllers
+	unknown := disabled.Difference(sets.NewString(seen...))
+	if unknown.Len() > 0 {
+		msg := fmt.Sprintf("Unknown disabled controllers in config: %v", unknown.List())
+		klog.Warning(msg)
+		slackAdminClient.MessageAdminChannel(msg)
+	}
 
 	<-ctx.Done()
 	return nil

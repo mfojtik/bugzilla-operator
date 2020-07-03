@@ -85,6 +85,8 @@ type OperatorConfig struct {
 	SlackChannel      string `yaml:"slackChannel"`
 	SlackAdminChannel string `yaml:"slackAdminChannel"`
 
+	DisabledControllers []string `yaml:"disabledControllers"`
+
 	CachePath string `yaml:"cachePath"`
 }
 
