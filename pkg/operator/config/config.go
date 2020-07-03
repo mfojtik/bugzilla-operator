@@ -52,14 +52,16 @@ type AutomaticReport struct {
 	//   @every 1s
 	//   @hourly
 	//   30 * * * *
+	//
+	// Default is:
 	//   CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4
 	//   CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4
 	When []string `yaml:"when"`
 
-	// report is a report identifier, blocker-bugs by default.
-	Report string `yaml:"report"`
+	// reports are report identifiers, blocker-bugs,closed-bugs by default.
+	Reports []string `yaml:"report"`
 
-	// components is the list of components this report is created for
+	// components is the list of components this report is created for. If empty, all components from top-level are used.
 	Components []string `yaml:"components"`
 }
 

@@ -66,50 +66,21 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
 	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
-	// group B classical schedule as default.
-	schedules := cfg.Schedules
-	if cfg.Schedules == nil && len(cfg.SlackChannel) > 0 {
-		schedules = append(schedules,
-			config.AutomaticReport{
-				SlackChannel: cfg.SlackChannel,
-				When: []string{
-					"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
-					"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
-				},
-				Report:     "blocker-bugs",
-				Components: cfg.Components.List(),
-			},
-			config.AutomaticReport{
-				When: []string{
-					"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
-					"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
-				},
-				Report:     "closed-bugs",
-				Components: cfg.Components.List(),
-			},
-		)
-	}
-
 	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-	var blockerReporters []factory.Controller
-	for _, r := range schedules {
-		if r.Report != "blocker-bugs" {
-			continue
-		}
-		slackChannelClient := slack.NewChannelClient(slackClient, r.SlackChannel, false)
-		blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
-			r.Components, r.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
-	}
-
-	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
 	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	var blockerReporters []factory.Controller
 	var closedReporters []factory.Controller
-	for _, r := range schedules {
-		if r.Report != "closed-bugs" {
-			continue
+	for _, ar := range cfg.Schedules {
+		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, false)
+		for _, r := range ar.Reports {
+			switch r {
+			case "blocker-bugs":
+				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
+					ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
+			case "closed-bugs":
+				closedReporters = append(closedReporters, closed.NewClosedReporter(ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, recorder))
+			}
 		}
-		slackChannelClient := slack.NewChannelClient(slackClient, r.SlackChannel, false)
-		closedReporters = append(closedReporters, closed.NewClosedReporter(r.Components, r.When, cfg, newBugzillaClient(&cfg), slackChannelClient, recorder))
 	}
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
