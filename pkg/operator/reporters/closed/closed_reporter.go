@@ -98,7 +98,7 @@ func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig) (
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"CLOSED"},
-		Component:      config.Components,
+		Component:      config.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "bug_status",

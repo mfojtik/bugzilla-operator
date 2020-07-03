@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -87,5 +88,30 @@ func TestExpandGroups(t *testing.T) {
 				t.Errorf("expandGroup() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestComponentMapUnmarshal(t *testing.T) {
+	c := OperatorConfig{}
+
+	if err := yaml.Unmarshal([]byte(`
+components:
+- a
+- b
+`), &c); err != nil {
+		t.Errorf("failed to unmarshal string list: %v", err)
+	} else {
+		reflect.DeepEqual(c, OperatorConfig{Components: map[string]Component{"a": {}, "b": {}}})
+	}
+	if err := yaml.Unmarshal([]byte(`
+components:
+  a:
+    lead: A
+  b:
+    lead: B
+`), &c); err != nil {
+		t.Errorf("failed to unmarshal string list: %v", err)
+	} else {
+		reflect.DeepEqual(c, OperatorConfig{Components: map[string]Component{"a": {Lead: "A"}, "b": {Lead: "B"}}})
 	}
 }

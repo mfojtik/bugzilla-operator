@@ -2,8 +2,10 @@ package config
 
 import (
 	"encoding/base64"
+	"fmt"
 	"strings"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -27,16 +29,31 @@ type BugzillaRelease struct {
 
 type Group []string
 
+type Component struct {
+	// lead should match the bugzilla default assignee the component and will get notifications of new BZs by default.
+	Lead string `yaml:"lead"`
+	// developers are not assigned by default, but might be on first comment if autoCommentAssign is true.
+	// This can have group:<group-name> references.
+	Developers []string `yaml:"developers"`
+	// watchers get notified about new bugzillas. If this is empty, the lead is notified.
+	// This can have group:<group-name> references.
+	Watchers []string `yaml:"watchers"`
+	// the first commentor from the developers is auto-assigned if the default
+	// assignee hasn't commented yet.
+	AssignFirstDeveloperCommentor bool `yaml:"autoCommentAssign"`
+}
+
 type OperatorConfig struct {
 	Credentials Credentials `yaml:"credentials"`
 
 	StaleBugComment      string `yaml:"staleBugComment"`
 	StaleBugCloseComment string `yaml:"staleBugCloseComment"`
 
-	Release    BugzillaRelease `yaml:"release"`
-	Components []string        `yaml:"components"`
+	Release BugzillaRelease `yaml:"release"`
 
-	Groups map[string]Group `yaml:"groups"`
+	// groups are list of emails or references to other groups with the syntax group:<other-group>.
+	Groups     map[string]Group `yaml:"groups"`
+	Components ComponentMap     `yaml:"components"`
 
 	// SlackChannel is a channel where the operator will post reports/etc.
 	SlackChannel      string `yaml:"slackChannel"`
@@ -125,4 +142,44 @@ func expandGroup(cfg map[string]Group, x string, expanded sets.String, seen sets
 	}
 
 	return expanded.Insert(x), seen
+}
+
+type ComponentMap map[string]Component
+
+func (cm *ComponentMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var x interface{}
+	if err := unmarshal(&x); err != nil {
+		return err
+	}
+
+	m := map[string]Component{}
+
+	if arr, ok := x.([]interface{}); ok {
+		for _, a := range arr {
+			c, ok := a.(string)
+			if !ok {
+				return fmt.Errorf("expected a string, got: %v", a)
+			}
+			m[c] = Component{}
+		}
+	} else {
+		bs, err := yaml.Marshal(x)
+		if err != nil {
+			return err
+		}
+		if err := yaml.Unmarshal(bs, &m); err != nil {
+			return err
+		}
+	}
+
+	*cm = m
+	return nil
+}
+
+func (cm *ComponentMap) List() []string {
+	l := make([]string, 0, len(*cm))
+	for c := range *cm {
+		l = append(l, c)
+	}
+	return l
 }

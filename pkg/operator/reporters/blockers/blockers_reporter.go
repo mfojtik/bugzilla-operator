@@ -151,7 +151,7 @@ func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig) 
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      config.Components,
+		Component:      config.Components.List(),
 		TargetRelease:  config.Release.TargetReleases,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
