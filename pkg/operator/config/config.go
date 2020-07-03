@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/base64"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Credentials struct {
@@ -96,4 +98,31 @@ func (b Credentials) DecodedSlackToken() string {
 
 func (b Credentials) DecodedSlackVerificationToken() string {
 	return decode(b.SlackVerificationToken)
+}
+
+func ExpandGroups(cfg map[string]Group, roots ...string) sets.String {
+	users := sets.String{}
+	for _, r := range roots {
+		users, _ = expandGroup(cfg, r, users, nil)
+	}
+	return users
+}
+
+func expandGroup(cfg map[string]Group, x string, expanded sets.String, seen sets.String) (sets.String, sets.String) {
+	if strings.HasPrefix(x, "group:") {
+		group := x[6:]
+		if seen.Has(group) {
+			return expanded, seen
+		}
+		if seen == nil {
+			seen = sets.String{}
+		}
+		seen = seen.Insert(group)
+		for _, y := range cfg[group] {
+			expanded, seen = expandGroup(cfg, y, expanded, seen)
+		}
+		return expanded, seen
+	}
+
+	return expanded.Insert(x), seen
 }
