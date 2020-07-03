@@ -21,20 +21,22 @@ type BlockersReporter struct {
 	config            config.OperatorConfig
 	newBugzillaClient func() cache.BugzillaClient
 	slackClient       slack.ChannelClient
+	components        []string
 }
 
-func NewClosedReporter(schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,
 		slackClient:       slackClient,
+		components: components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newBugzillaClient()
-	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
+	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config, c.components)
 	if err != nil {
 		return err
 	}
@@ -50,8 +52,8 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	return nil
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
-	closedBugs, err := getClosedList(client, config)
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, error) {
+	closedBugs, err := getClosedList(client, config, components)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", err
@@ -93,12 +95,12 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	return report, nil
 }
 
-func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getClosedList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"CLOSED"},
-		Component:      config.Components,
+		Component:      components,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "bug_status",

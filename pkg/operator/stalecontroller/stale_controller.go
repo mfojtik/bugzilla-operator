@@ -115,7 +115,7 @@ func getStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugz
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      c.Components,
+		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "external_bugzilla.description",

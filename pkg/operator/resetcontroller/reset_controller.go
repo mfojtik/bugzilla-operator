@@ -106,7 +106,7 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      c.Components,
+		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "keywords",
@@ -140,7 +140,7 @@ func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorC
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"MODIFIED", "VERIFIED", "ON_QA"},
-		Component:      c.Components,
+		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "whiteboard",
@@ -168,7 +168,7 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      c.Components,
+		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "flagtypes.name",
