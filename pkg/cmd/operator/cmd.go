@@ -45,6 +45,7 @@ func NewOperator(ctx context.Context) *cobra.Command {
 			if err := yaml.Unmarshal(configBytes, c); err != nil {
 				klog.Fatalf("Unable to parse config: %v", err)
 			}
+			config.ApplyDefaults(c)
 			if err := operator.Run(ctx, *c); err != nil {
 				klog.Fatal(err)
 			}
