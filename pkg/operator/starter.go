@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	slackgo "github.com/slack-go/slack"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
@@ -67,6 +70,17 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	staleResetController := resetcontroller.NewResetStaleController(controllerContext, cfg, recorder)
 	closeStaleController := closecontroller.NewCloseStaleController(controllerContext, cfg, recorder)
 	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder)
+	kubeConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return err
+	}
+	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
+
+	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, cmClient)
 
 	allBlockersReporter := blockers.NewBlockersReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
 	allClosedReporter := closed.NewClosedReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
@@ -76,7 +90,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	var closedReporters []factory.Controller
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
-		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient)
+		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
@@ -105,7 +119,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 					// don't forget to also add new reports down in the direct report command
 				}
-
 				switch job {
 				case "help", "":
 					names := []string{}

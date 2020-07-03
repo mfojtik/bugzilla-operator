@@ -3,6 +3,12 @@ package controller
 import (
 	"context"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
+
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
@@ -10,11 +16,12 @@ import (
 type ControllerContext struct {
 	newBugzillaClient             func(debug bool) cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
+	cmClient                      corev1client.ConfigMapInterface
 }
 
-func NewControllerContext(newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient) ControllerContext {
+func NewControllerContext(newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, cmClient corev1client.ConfigMapInterface) ControllerContext {
 	return ControllerContext{
-		newBugzillaClient, slackClient, slackDebugClient,
+		newBugzillaClient, slackClient, slackDebugClient, cmClient,
 	}
 }
 
@@ -34,12 +41,43 @@ func (c *ControllerContext) SlackClient(ctx context.Context) slack.ChannelClient
 	return c.slackClient
 }
 
-func (c *ControllerContext) GetPersistentValue(key string) (string, error) {
-	panic("implement")
-	return "", nil
+func (c *ControllerContext) GetPersistentValue(ctx context.Context, key string) (string, error) {
+	cm, err := c.cmClient.Get(ctx, "state", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return cm.Data[key], nil
 }
 
-func (c *ControllerContext) SetPersistentValue(key, value string) error {
-	panic("implement")
-	return nil
+func (c *ControllerContext) SetPersistentValue(ctx context.Context, key, value string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cm, err := c.cmClient.Get(ctx, "state", metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				cm = &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "state",
+					},
+					Data: map[string]string{key: value},
+				}
+				if _, err := c.cmClient.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+		}
+
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+		cm.Data[key] = value
+
+		_, err = c.cmClient.Update(ctx, cm, metav1.UpdateOptions{})
+		return err
+	})
 }

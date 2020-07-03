@@ -39,6 +39,12 @@ spec:
             requests:
               memory: 50Mi
               cpu: 10m
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+                name: podinfo
           volumeMounts:
             - mountPath: /var/run/operator-config
               name: config
