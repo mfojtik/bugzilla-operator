@@ -65,11 +65,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
-	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient)
-	staleController := stalecontroller.NewStaleController(controllerContext, cfg, recorder)
-	staleResetController := resetcontroller.NewResetStaleController(controllerContext, cfg, recorder)
-	closeStaleController := closecontroller.NewCloseStaleController(controllerContext, cfg, recorder)
-	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder)
 	kubeConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return err
@@ -81,77 +76,73 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
 
 	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, cmClient)
+	controllers := map[string]factory.Controller{
+		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
+		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
+		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
+		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
+	}
 
-	allBlockersReporter := blockers.NewBlockersReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
-	allClosedReporter := closed.NewClosedReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
-	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
-
-	var blockerReporters []factory.Controller
-	var closedReporters []factory.Controller
+	var scheduledReports []factory.Controller
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
-				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
+				scheduledReports = append(scheduledReports, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
 			case "closed-bugs":
-				closedReporters = append(closedReporters, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
+				scheduledReports = append(scheduledReports, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
+			case "upcoming-sprint":
+				scheduledReports = append(scheduledReports, upcomingsprint.NewUpcomingSprintReporter(controllerContext, cfg.Components.List(), ar.When, cfg, recorder))
 			}
 		}
 	}
 
-	// report command allow to manually trigger a reporter to run out of its normal schedule
-	triggerDef := func(desc string, debug bool) *slacker.CommandDefinition {
-		return &slacker.CommandDefinition{
-			Description: desc,
-			Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
-				job := req.StringParam("job", "")
+	// allow to manually trigger a controller to run out of its normal schedule
+	runJob := func(debug bool) func(req slacker.Request, w slacker.ResponseWriter) {
+		return func(req slacker.Request, w slacker.ResponseWriter) {
+			job := req.StringParam("job", "")
 
-				reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
-					"blocker-bugs":       allBlockersReporter.Sync,
-					"closed-bugs":        allClosedReporter.Sync,
-					"upcoming-sprint":    allUpcomingSprintReporter.Sync,
-					"stale":              staleController.Sync,
-					"stale-reset":        staleResetController.Sync,
-					"close-stale":        closeStaleController.Sync,
-					"first-team-comment": firstTeamCommentController.Sync,
+			switch job {
+			case "help", "":
+				names := []string{}
+				for n := range controllers {
+					names = append(names, n)
+				}
+				sort.Strings(names)
+				w.Reply(strings.Join(names, "\n"))
+			default:
+				c, ok := controllers[job]
+				if !ok {
+					w.Reply(fmt.Sprintf("Unknown report %q", job))
+				}
 
-					// don't forget to also add new reports down in the direct report command
+				ctx := ctx // shadow global ctx
+				if debug {
+					ctx = context.WithValue(ctx, "debug", debug)
 				}
-				switch job {
-				case "help", "":
-					names := []string{}
-					for s := range reports {
-						names = append(names, s)
-					}
-					sort.Strings(names)
-					w.Reply(strings.Join(names, "\n"))
-				default:
-					if report, ok := reports[job]; ok {
-						ctx := ctx
-						if debug {
-							ctx = context.WithValue(ctx, "debug", debug)
-						}
-						if err := report(ctx, factory.NewSyncContext(job, recorder)); err != nil {
-							recorder.Warningf("ReportError", "Job reported error: %v", err)
-							return
-						}
-						_, _, _, err := w.Client().SendMessage(req.Event().Channel,
-							slackgo.MsgOptionPostEphemeral(req.Event().User),
-							slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
-						if err != nil {
-							klog.Error(err)
-						}
-					} else {
-						w.Reply(fmt.Sprintf("Unknown report %q", job))
-					}
+				if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
+					recorder.Warningf("ReportError", "Job reported error: %v", err)
+					return
 				}
-			}, "group:admins"),
+				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+					slackgo.MsgOptionPostEphemeral(req.Event().User),
+					slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
+				if err != nil {
+					klog.Error(err)
+				}
+			}
 		}
 	}
-	slackerInstance.Command("admin trigger <job>", triggerDef("Trigger a job to run.", false))
-	slackerInstance.Command("admin debug <job>", triggerDef("Trigger a job to run in debug mode.", true))
+	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
+		Description: "Trigger a job to run.",
+		Handler:     auth(cfg, runJob(false), "group:admins"),
+	})
+	slackerInstance.Command("admin debug <job>", &slacker.CommandDefinition{
+		Description: "Trigger a job to run in debug mode.",
+		Handler:     auth(cfg, runJob(true), "group:admins"),
+	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: "Run a report and print result here.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
@@ -213,18 +204,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	seen := []string{}
 	disabled := sets.NewString(cfg.DisabledControllers...)
-	all := append(append(
-		[]factory.Controller{
-			allBlockersReporter,
-			allClosedReporter,
-			staleController,
-			staleResetController,
-			closeStaleController,
-			firstTeamCommentController,
-		},
-		blockerReporters...),
-		closedReporters...)
-	for _, c := range all {
+	var all []factory.Controller
+	for _, c := range controllers {
+		all = append(all, c)
+	}
+	for _, c := range append(all, scheduledReports...) {
 		seen = append(seen, c.Name())
 		if disabled.Has(c.Name()) {
 			continue
