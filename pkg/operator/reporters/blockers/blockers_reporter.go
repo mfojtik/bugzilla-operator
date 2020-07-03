@@ -22,6 +22,7 @@ type BlockersReporter struct {
 
 	newBugzillaClient             func() cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
+	components                    []string
 }
 
 const (
@@ -32,13 +33,14 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient,
+func NewBlockersReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient,
 	recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		config:            operatorConfig,
 		newBugzillaClient: newBugzillaClient,
 		slackClient:       slackClient,
 		slackDebugClient:  slackDebugClient,
+		components: components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
 }
@@ -112,7 +114,7 @@ type notificationMap struct {
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	client := c.newBugzillaClient()
 
-	channelReport, triagedBugs, err := Report(ctx, client, syncCtx.Recorder(), &c.config)
+	channelReport, triagedBugs, err := Report(ctx, client, syncCtx.Recorder(), &c.config, c.components)
 	if err != nil {
 		return err
 	}
@@ -146,12 +148,12 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	return nil
 }
 
-func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      config.Components.List(),
+		Component:      components,
 		TargetRelease:  config.Release.TargetReleases,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
@@ -181,8 +183,8 @@ func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig) 
 	})
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, *notificationMap, error) {
-	blockerBugs, err := getBlockerList(client, config)
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, *notificationMap, error) {
+	blockerBugs, err := getBlockerList(client, config, components)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", nil, err

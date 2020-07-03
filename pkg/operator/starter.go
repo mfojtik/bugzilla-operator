@@ -33,12 +33,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	slackClient := slackgo.New(cfg.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 
-	// This slack client is used for production notifications
-	// Be careful, this can spam people!
-	slackProductionClient := slack.NewChannelClient(slackClient, cfg.SlackChannel, false)
-
 	// This slack client is used for debugging
 	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, true)
+
+	// This slack client posts only to the admin channel
+	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, false)
 
 	recorder := slack.NewRecorder(slackDebugClient, "BugzillaOperator")
 
@@ -60,23 +59,58 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
 	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, recorder)
+	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
 
-	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
+	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
+	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 
-	blockerReporter := blockers.NewBlockersReporter([]string{
-		"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
-		"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
-	}, cfg, newBugzillaClient(&cfg), slackProductionClient, slackDebugClient, recorder)
+	// group B classical schedule as default.
+	schedules := cfg.Schedules
+	if cfg.Schedules == nil && len(cfg.SlackChannel) > 0 {
+		schedules = append(schedules,
+			config.AutomaticReport{
+				SlackChannel: cfg.SlackChannel,
+				When: []string{
+					"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
+					"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
+				},
+				Report:     "blocker-bugs",
+				Components: cfg.Components.List(),
+			},
+			config.AutomaticReport{
+				When: []string{
+					"CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4",
+					"CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4",
+				},
+				Report:     "closed-bugs",
+				Components: cfg.Components.List(),
+			},
+		)
+	}
+
+	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+	var blockerReporters []factory.Controller
+	for _, r := range schedules {
+		if r.Report != "blocker-bugs" {
+			continue
+		}
+		slackChannelClient := slack.NewChannelClient(slackClient, r.SlackChannel, false)
+		blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
+			r.Components, r.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
+	}
 
 	// closed bugs report post statistic about closed bugs to status channel in 24h between Mon->Fri
-	closedReporter := closed.NewClosedReporter([]string{
-		"CRON_TZ=Europe/Prague 35 9 * * 1-5",
-		"CRON_TZ=America/New_York 35 9 * * 1-5",
-	}, cfg, newBugzillaClient(&cfg), slackProductionClient, recorder)
+	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	var closedReporters []factory.Controller
+	for _, r := range schedules {
+		if r.Report != "closed-bugs" {
+			continue
+		}
+		slackChannelClient := slack.NewChannelClient(slackClient, r.SlackChannel, false)
+		closedReporters = append(closedReporters, closed.NewClosedReporter(r.Components, r.When, cfg, newBugzillaClient(&cfg), slackChannelClient, recorder))
+	}
 
 	// report command allow to manually trigger a reporter to run out of its normal schedule
 	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
@@ -85,8 +119,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			job := req.StringParam("job", "")
 
 			reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
-				"blocker-bugs": blockerReporter.Sync,
-				"closed-bugs":  closedReporter.Sync,
+				"blocker-bugs": allBlockersReporter.Sync,
+				"closed-bugs":  allClosedReporter.Sync,
 
 				// don't forget to also add new reports down in the direct report command
 			}
@@ -123,11 +157,13 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			job := req.StringParam("job", "")
 			reports := map[string]func(ctx context.Context, client cache.BugzillaClient) (string, error){
 				"blocker-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
-					report, _, err := blockers.Report(ctx, client, recorder, &cfg)
+					// TODO: restrict components to one team
+					report, _, err := blockers.Report(ctx, client, recorder, &cfg, cfg.Components.List())
 					return report, err
 				},
 				"closed-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
-					return closed.Report(ctx, client, recorder, &cfg)
+					// TODO: restrict components to one team
+					return closed.Report(ctx, client, recorder, &cfg, cfg.Components.List())
 				},
 
 				// don't forget to also add new reports above in the trigger command
@@ -170,8 +206,14 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		},
 	})
 
-	go blockerReporter.Run(ctx, 1)
-	go closedReporter.Run(ctx, 1)
+	allBlockersReporter.Run(ctx, 1)
+	for _, r := range blockerReporters {
+		go r.Run(ctx, 1)
+	}
+	allClosedReporter.Run(ctx, 1)
+	for _, r := range closedReporters {
+		go r.Run(ctx, 1)
+	}
 	go staleController.Run(ctx, 1)
 	go staleResetController.Run(ctx, 1)
 	go closeStaleController.Run(ctx, 1)

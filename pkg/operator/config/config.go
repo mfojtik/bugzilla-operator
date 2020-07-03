@@ -43,6 +43,26 @@ type Component struct {
 	AssignFirstDeveloperCommentor bool `yaml:"autoCommentAssign"`
 }
 
+type AutomaticReport struct {
+	// slackChannel is where to post the report to.
+	SlackChannel string `yaml:"slackChannel"`
+
+	// crontab like schedules, e.g.:
+	//
+	//   @every 1s
+	//   @hourly
+	//   30 * * * *
+	//   CRON_TZ=Europe/Prague 30 9 1-7,16-23 * 2-4
+	//   CRON_TZ=America/New_York 30 9 1-7,16-23 * 2-4
+	When []string `yaml:"when"`
+
+	// report is a report identifier, blocker-bugs by default.
+	Report string `yaml:"report"`
+
+	// components is the list of components this report is created for
+	Components []string `yaml:"components"`
+}
+
 type OperatorConfig struct {
 	Credentials Credentials `yaml:"credentials"`
 
@@ -55,7 +75,11 @@ type OperatorConfig struct {
 	Groups     map[string]Group `yaml:"groups"`
 	Components ComponentMap     `yaml:"components"`
 
+	// schedules define when reports are created, which contents and sent to which channel.
+	Schedules []AutomaticReport `yaml:"schedules"`
+
 	// SlackChannel is a channel where the operator will post reports/etc.
+	// Deprecated: SlackChannel is deprecated, use schedules instead.
 	SlackChannel      string `yaml:"slackChannel"`
 	SlackAdminChannel string `yaml:"slackAdminChannel"`
 
