@@ -206,11 +206,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		},
 	})
 
-	allBlockersReporter.Run(ctx, 1)
+	go allBlockersReporter.Run(ctx, 1)
 	for _, r := range blockerReporters {
 		go r.Run(ctx, 1)
 	}
-	allClosedReporter.Run(ctx, 1)
+	go allClosedReporter.Run(ctx, 1)
 	for _, r := range closedReporters {
 		go r.Run(ctx, 1)
 	}
