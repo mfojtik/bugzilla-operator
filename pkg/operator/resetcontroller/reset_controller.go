@@ -15,17 +15,16 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type ResetStaleController struct {
-	controller.Controller
+	controller.ControllerContext
 	config config.OperatorConfig
 }
 
-func NewResetStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewResetStaleController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &ResetStaleController{
-		Controller: controller.NewController(newBugzillaClient, slackClient, slackDebugClient),
+		ControllerContext: ctx,
 		config:            operatorConfig,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("ResetStaleController", recorder)

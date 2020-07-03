@@ -20,7 +20,7 @@ func TestNewFirstTeamCommentController(t *testing.T) {
 
 	cache.Open("/tmp/bolt")
 	c := &FirstTeamCommentController{
-		Controller: controller.NewController(func(debug bool) cache.BugzillaClient {
+		ControllerContext: controller.NewControllerContext(func(debug bool) cache.BugzillaClient {
 			return cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 				return []byte(os.Getenv("BUGZILLA_TOKEN"))
 			}, "https://bugzilla.redhat.com"))

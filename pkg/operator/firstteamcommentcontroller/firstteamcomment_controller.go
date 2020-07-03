@@ -13,19 +13,17 @@ import (
 	errutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type FirstTeamCommentController struct {
-	controller.Controller
+	controller.ControllerContext
 	config config.OperatorConfig
 }
 
-func NewFirstTeamCommentController(operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
-	c := &FirstTeamCommentController{controller.NewController(newBugzillaClient, slackClient, slackDebugClient), operatorConfig}
+func NewFirstTeamCommentController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &FirstTeamCommentController{ctx, operatorConfig}
 	return factory.New().WithSync(c.sync).ResyncEvery(2*time.Hour).ToController("FirstTeamCommentController", recorder)
 }
 

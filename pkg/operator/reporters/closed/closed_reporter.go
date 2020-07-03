@@ -15,20 +15,19 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type BlockersReporter struct {
-	controller.Controller
+	controller.ControllerContext
 	config     config.OperatorConfig
 	components []string
 }
 
-func NewClosedReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewClosedReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
-		Controller: controller.NewController(newBugzillaClient, slackClient, slackDebugClient),
-		config:     operatorConfig,
-		components: components,
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
 }

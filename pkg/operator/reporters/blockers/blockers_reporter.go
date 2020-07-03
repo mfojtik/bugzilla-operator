@@ -19,7 +19,7 @@ import (
 )
 
 type BlockersReporter struct {
-	controller.Controller
+	controller.ControllerContext
 	config     config.OperatorConfig
 	components []string
 }
@@ -32,9 +32,10 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient,
+func NewBlockersReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig,
 	recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
+		ControllerContext: ctx,
 		config:            operatorConfig,
 		components:        components,
 	}

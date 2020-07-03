@@ -12,19 +12,17 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type UpcomingSprintReporter struct {
-	controller.Controller
-	config            config.OperatorConfig
-	components        []string
+	controller.ControllerContext
+	config     config.OperatorConfig
+	components []string
 }
 
-func NewUpcomingSprintReporter(components []string, schedule []string, operatorConfig config.OperatorConfig, newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient,
-	recorder events.Recorder) factory.Controller {
+func NewUpcomingSprintReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &UpcomingSprintReporter{
-		Controller: controller.NewController(newBugzillaClient, slackClient, slackDebugClient),
+		ControllerContext: ctx,
 		config:            operatorConfig,
 		components:        components,
 	}

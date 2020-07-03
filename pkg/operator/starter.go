@@ -16,6 +16,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
@@ -61,31 +62,27 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
-	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient)
+	staleController := stalecontroller.NewStaleController(controllerContext, cfg, recorder)
+	staleResetController := resetcontroller.NewResetStaleController(controllerContext, cfg, recorder)
+	closeStaleController := closecontroller.NewCloseStaleController(controllerContext, cfg, recorder)
+	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder)
 
-	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-
-	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-
-	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-
-	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+	allBlockersReporter := blockers.NewBlockersReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
+	allClosedReporter := closed.NewClosedReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
+	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(controllerContext, cfg.Components.List(), nil, cfg, recorder)
 
 	var blockerReporters []factory.Controller
 	var closedReporters []factory.Controller
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
+		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
-				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
-					ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
+				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
 			case "closed-bugs":
-				closedReporters = append(closedReporters, closed.NewClosedReporter(ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
+				closedReporters = append(closedReporters, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
 			}
 		}
 	}
