@@ -15,6 +15,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
@@ -65,6 +66,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
 	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+
+	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
 
 	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
@@ -188,6 +191,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	go staleController.Run(ctx, 1)
 	go staleResetController.Run(ctx, 1)
 	go closeStaleController.Run(ctx, 1)
+	go firstTeamCommentController.Run(ctx, 1)
+
 	go slackerInstance.Run(ctx)
 
 	<-ctx.Done()

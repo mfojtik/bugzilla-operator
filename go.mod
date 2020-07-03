@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/eparis/bugzilla v0.0.0-20200611221508-8c3833f85c69
+	github.com/eparis/bugzilla v0.0.0-20200703113310-65c18f670c00
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/gorilla/handlers v1.4.2
 	github.com/openshift/build-machinery-go v0.0.0-20200512074546-3744767c4131
@@ -25,4 +25,4 @@ require (
 	k8s.io/klog v1.0.0
 )
 
-// replace github.com/eparis/bugzilla => github.com/mfojtik/bugzilla v0.0.0-20200611073413-8c3af3656d03
+replace github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200703113310-65c18f670c00

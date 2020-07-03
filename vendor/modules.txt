@@ -10,7 +10,7 @@ github.com/cespare/xxhash/v2
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/eparis/bugzilla v0.0.0-20200611221508-8c3833f85c69
+# github.com/eparis/bugzilla v0.0.0-20200703113310-65c18f670c00 => github.com/sttts/bugzilla v0.0.0-20200703113310-65c18f670c00
 ## explicit
 github.com/eparis/bugzilla
 # github.com/gogo/protobuf v1.3.1
@@ -450,3 +450,4 @@ k8s.io/utils/trace
 sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
+# github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200703113310-65c18f670c00

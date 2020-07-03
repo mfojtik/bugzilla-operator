@@ -231,6 +231,7 @@ type BugUpdate struct {
 	Priority      string       `json:"priority,omitempty"`
 	Severity      string       `json:"severity,omitempty"`
 	MinorUpdate   bool         `json:"minor_update,omitempty"`
+	AssignedTo    string       `json:"assigned_to,omitempty"`
 }
 
 // ExternalBug contains details about an external bug linked to a Bugzilla bug.
