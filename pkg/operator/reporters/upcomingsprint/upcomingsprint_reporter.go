@@ -77,7 +77,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		result = append(result, fmt.Sprintf("%s: <%s|%d>", assigneeName, makeBugLink(assigneeName), count))
 	}
 
-	return strings.Join(result, ","), nil
+	return strings.Join(result, "\n"), nil
 }
 
 func getUpcomingSprintList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
