@@ -18,6 +18,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -71,6 +72,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
 	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+
 	var blockerReporters []factory.Controller
 	var closedReporters []factory.Controller
 	for _, ar := range cfg.Schedules {
@@ -93,8 +96,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			job := req.StringParam("job", "")
 
 			reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
-				"blocker-bugs": allBlockersReporter.Sync,
-				"closed-bugs":  allClosedReporter.Sync,
+				"blocker-bugs":    allBlockersReporter.Sync,
+				"closed-bugs":     allClosedReporter.Sync,
+				"upcoming-sprint": allUpcomingSprintReporter.Sync,
 
 				// don't forget to also add new reports down in the direct report command
 			}
@@ -138,6 +142,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				"closed-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					return closed.Report(ctx, client, recorder, &cfg, cfg.Components.List())
+				},
+				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					// TODO: restrict components to one team
+					return upcomingsprint.Report(ctx, client, recorder, &cfg, cfg.Components.List())
 				},
 
 				// don't forget to also add new reports above in the trigger command

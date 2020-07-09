@@ -127,9 +127,6 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			if !reflect.DeepEqual(result.blockers, expectedBlockers) {
 				t.Errorf("expected:\n%s\n as blockers, got:\n%s", strings.Join(expectedBlockers, "\n"), strings.Join(result.blockers, "\n"))
 			}
-			if !reflect.DeepEqual(result.needTriage, expectedTriage) {
-				t.Errorf("expected:\n%s\n need needTriage, got:\n%s", strings.Join(expectedTriage, "\n"), strings.Join(result.needTriage, "\n"))
-			}
 		})
 	}
 }
