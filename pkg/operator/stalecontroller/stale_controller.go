@@ -16,7 +16,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
 
 var priorityTransitions = []config.Transition{
@@ -26,16 +26,14 @@ var priorityTransitions = []config.Transition{
 }
 
 type StaleController struct {
-	config            config.OperatorConfig
-	newBugzillaClient func() cache.BugzillaClient
-	slackClient       slack.ChannelClient
+	controller.ControllerContext
+	config config.OperatorConfig
 }
 
-func NewStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewStaleController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &StaleController{
+		ControllerContext: ctx,
 		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("StaleController", recorder)
 }
@@ -60,7 +58,8 @@ func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, erro
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
 	staleBugs, err := getStaleBugs(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
@@ -98,7 +97,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
 			strings.Join(messages, "\n"))
 
-		if err := c.slackClient.MessageEmail(target, message); err != nil {
+		if err := slackClient.MessageEmail(target, message); err != nil {
 			syncCtx.Recorder().Warningf("MessageFailed", fmt.Sprintf("Message to %q failed to send: %v", target, err))
 		}
 	}

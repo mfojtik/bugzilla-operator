@@ -14,28 +14,25 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
 
 type ResetStaleController struct {
+	controller.ControllerContext
 	config config.OperatorConfig
-
-	newBugzillaClient             func() cache.BugzillaClient
-	slackClient, slackDebugClient slack.ChannelClient
 }
 
-func NewResetStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
+func NewResetStaleController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &ResetStaleController{
+		ControllerContext: ctx,
 		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
-		slackDebugClient:  slackDebugClient,
 	}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("ResetStaleController", recorder)
 }
 
 func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
 
 	var bugsToReset []*bugzilla.Bug
 	var errors []error
@@ -84,10 +81,10 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 		resetBugLinks = append(resetBugLinks, bugutil.GetBugURL(*bug))
 		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after the _need_info?_ flag was reset:\n%s\n", bugutil.FormatBugMessage(*bug))
 
-		if err := c.slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
+		if err := slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.AssignedTo, err)
 		}
-		if err := c.slackClient.MessageEmail(bug.Creator, message); err != nil {
+		if err := slackClient.MessageEmail(bug.Creator, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.Creator, err)
 
 		}
@@ -95,7 +92,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 
 	// Notify admin
 	if len(resetBugLinks) > 0 {
-		c.slackDebugClient.MessageChannel(fmt.Sprintf("%s reset: %s", bugutil.BugCountPlural(len(resetBugLinks), true), strings.Join(resetBugLinks, ", ")))
+		slackClient.MessageAdminChannel(fmt.Sprintf("%s reset: %s", bugutil.BugCountPlural(len(resetBugLinks), true), strings.Join(resetBugLinks, ", ")))
 	}
 
 	return errorutil.NewAggregate(errors)

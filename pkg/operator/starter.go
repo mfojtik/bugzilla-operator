@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -10,11 +11,15 @@ import (
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	slackgo "github.com/slack-go/slack"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
@@ -36,10 +41,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackClient := slackgo.New(cfg.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 
 	// This slack client is used for debugging
-	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, true)
+	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, true)
 
 	// This slack client posts only to the admin channel
-	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, false)
+	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
 
 	recorder := slack.NewRecorder(slackDebugClient, "BugzillaOperator")
 
@@ -60,74 +65,83 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
 
-	// stale controller marks bugs that are stale (unchanged for 30 days)
-	staleController := stalecontroller.NewStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
+	kubeConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return err
+	}
+	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
 
-	staleResetController := resetcontroller.NewResetStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
+	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, cmClient)
+	controllers := map[string]factory.Controller{
+		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
+		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
+		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
+		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
+	}
 
-	// close stale controller automatically close bugs that were not updated after marked LifecycleClose for 7 days
-	closeStaleController := closecontroller.NewCloseStaleController(cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-
-	firstTeamCommentController := firstteamcommentcontroller.NewFirstTeamCommentController(cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
-
-	allBlockersReporter := blockers.NewBlockersReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, recorder)
-	allClosedReporter := closed.NewClosedReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
-	allUpcomingSprintReporter := upcomingsprint.NewUpcomingSprintReporter(cfg.Components.List(), nil, cfg, newBugzillaClient(&cfg), slackAdminClient, recorder)
-
-	var blockerReporters []factory.Controller
-	var closedReporters []factory.Controller
+	var scheduledReports []factory.Controller
 	for _, ar := range cfg.Schedules {
-		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, false)
+		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
+		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
-				blockerReporters = append(blockerReporters, blockers.NewBlockersReporter(
-					ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, recorder))
+				scheduledReports = append(scheduledReports, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
 			case "closed-bugs":
-				closedReporters = append(closedReporters, closed.NewClosedReporter(ar.Components, ar.When, cfg, newBugzillaClient(&cfg), slackChannelClient, recorder))
+				scheduledReports = append(scheduledReports, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
+			case "upcoming-sprint":
+				scheduledReports = append(scheduledReports, upcomingsprint.NewUpcomingSprintReporter(controllerContext, cfg.Components.List(), ar.When, cfg, recorder))
 			}
 		}
 	}
 
-	// report command allow to manually trigger a reporter to run out of its normal schedule
-	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
-		Description: "Trigger a job to run.",
-		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
+	// allow to manually trigger a controller to run out of its normal schedule
+	runJob := func(debug bool) func(req slacker.Request, w slacker.ResponseWriter) {
+		return func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
-
-			reports := map[string]func(ctx context.Context, controllerContext factory.SyncContext) error{
-				"blocker-bugs":    allBlockersReporter.Sync,
-				"closed-bugs":     allClosedReporter.Sync,
-				"upcoming-sprint": allUpcomingSprintReporter.Sync,
-
-				// don't forget to also add new reports down in the direct report command
-			}
 
 			switch job {
 			case "help", "":
 				names := []string{}
-				for s := range reports {
-					names = append(names, s)
+				for n := range controllers {
+					names = append(names, n)
 				}
 				sort.Strings(names)
 				w.Reply(strings.Join(names, "\n"))
 			default:
-				if report, ok := reports[job]; ok {
-					if err := report(ctx, factory.NewSyncContext(job, recorder)); err != nil {
-						recorder.Warningf("ReportError", "Job reported error: %v", err)
-						return
-					}
-					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
-						slackgo.MsgOptionPostEphemeral(req.Event().User),
-						slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
-					if err != nil {
-						klog.Error(err)
-					}
-				} else {
+				c, ok := controllers[job]
+				if !ok {
 					w.Reply(fmt.Sprintf("Unknown report %q", job))
 				}
+
+				ctx := ctx // shadow global ctx
+				if debug {
+					ctx = context.WithValue(ctx, "debug", debug)
+				}
+				if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
+					recorder.Warningf("ReportError", "Job reported error: %v", err)
+					return
+				}
+				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+					slackgo.MsgOptionPostEphemeral(req.Event().User),
+					slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
+				if err != nil {
+					klog.Error(err)
+				}
 			}
-		}, "group:admins"),
+		}
+	}
+	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
+		Description: "Trigger a job to run.",
+		Handler:     auth(cfg, runJob(false), "group:admins"),
+	})
+	slackerInstance.Command("admin debug <job>", &slacker.CommandDefinition{
+		Description: "Trigger a job to run in debug mode.",
+		Handler:     auth(cfg, runJob(true), "group:admins"),
 	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: "Run a report and print result here.",
@@ -173,7 +187,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					klog.Error(err)
 				}
 
-				reply, err := report(context.TODO(), newBugzillaClient(&cfg)())
+				reply, err := report(context.TODO(), newBugzillaClient(&cfg)(true))
 				if err != nil {
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
@@ -188,29 +202,42 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		},
 	})
 
-	go allBlockersReporter.Run(ctx, 1)
-	for _, r := range blockerReporters {
-		go r.Run(ctx, 1)
+	seen := []string{}
+	disabled := sets.NewString(cfg.DisabledControllers...)
+	var all []factory.Controller
+	for _, c := range controllers {
+		all = append(all, c)
 	}
-	go allClosedReporter.Run(ctx, 1)
-	for _, r := range closedReporters {
-		go r.Run(ctx, 1)
+	for _, c := range append(all, scheduledReports...) {
+		seen = append(seen, c.Name())
+		if disabled.Has(c.Name()) {
+			continue
+		}
+		c.Run(ctx, 1)
 	}
-	go staleController.Run(ctx, 1)
-	go staleResetController.Run(ctx, 1)
-	go closeStaleController.Run(ctx, 1)
-	go firstTeamCommentController.Run(ctx, 1)
 
 	go slackerInstance.Run(ctx)
+
+	// sanity check list of disabled controllers
+	unknown := disabled.Difference(sets.NewString(seen...))
+	if unknown.Len() > 0 {
+		msg := fmt.Sprintf("Unknown disabled controllers in config: %v", unknown.List())
+		klog.Warning(msg)
+		slackAdminClient.MessageAdminChannel(msg)
+	}
 
 	<-ctx.Done()
 	return nil
 }
 
-func newBugzillaClient(cfg *config.OperatorConfig) func() cache.BugzillaClient {
-	return func() cache.BugzillaClient {
-		return cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
+func newBugzillaClient(cfg *config.OperatorConfig) func(debug bool) cache.BugzillaClient {
+	return func(debug bool) cache.BugzillaClient {
+		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
 		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
+		if debug {
+			return &loggingReadOnlyClient{delegate: c}
+		}
+		return c
 	}
 }

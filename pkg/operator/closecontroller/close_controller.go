@@ -14,7 +14,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
 
 var priorityTransitions = []config.Transition{
@@ -23,29 +23,23 @@ var priorityTransitions = []config.Transition{
 }
 
 type CloseStaleController struct {
+	controller.ControllerContext
 	config config.OperatorConfig
-
-	newBugzillaClient             func() cache.BugzillaClient
-	slackClient, slackDebugClient slack.ChannelClient
 }
 
-func NewCloseStaleController(operatorConfig config.OperatorConfig, newBugzillaClient func() cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, recorder events.Recorder) factory.Controller {
-	c := &CloseStaleController{
-		config:            operatorConfig,
-		newBugzillaClient: newBugzillaClient,
-		slackClient:       slackClient,
-		slackDebugClient:  slackDebugClient,
-	}
+func NewCloseStaleController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &CloseStaleController{ctx, operatorConfig}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("CloseStaleController", recorder)
 }
 
 func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	client := c.newBugzillaClient()
+	client := c.NewBugzillaClient(ctx)
 	staleBugs, err := getBugsToClose(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 		return err
 	}
+	slackClient := c.SlackClient(ctx)
 
 	var errors []error
 	var closedBugLinks []string
@@ -75,10 +69,10 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 		closedBugLinks = append(closedBugLinks, bugutil.GetBugURL(*bug))
 		message := fmt.Sprintf("Following bug was automatically *closed* after being marked as _LifecycleStale_ for 7 days without update:\n%s\n", bugutil.FormatBugMessage(*bug))
 
-		if err := c.slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
+		if err := slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to assignee %q: %v", bug.AssignedTo, err)
 		}
-		if err := c.slackClient.MessageEmail(bug.Creator, message); err != nil {
+		if err := slackClient.MessageEmail(bug.Creator, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to reporter %q: %v", bug.Creator, err)
 
 		}
@@ -86,7 +80,7 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 
 	// Notify admin
 	if len(closedBugLinks) > 0 {
-		c.slackDebugClient.MessageChannel(fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ", ")))
+		slackClient.MessageAdminChannel(fmt.Sprintf("%s closed: %s", bugutil.BugCountPlural(len(closedBugLinks), true), strings.Join(closedBugLinks, ", ")))
 	}
 
 	return errorutil.NewAggregate(errors)
