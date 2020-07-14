@@ -44,11 +44,17 @@ func SlackEmailToBugzilla(slackEmail string) string {
 }
 
 func (c *slackClient) MessageChannel(message string) error {
+	if c.debug {
+		message = fmt.Sprintf("DEBUG CHANNEL #%s: %s", c.channel, message)
+	}
 	_, _, err := c.client.PostMessage(c.channel, slack.MsgOptionText(message, false))
 	return err
 }
 
 func (c *slackClient) MessageAdminChannel(message string) error {
+	if c.debug {
+		message = fmt.Sprintf("DEBUG ADMIN #%s: %s", c.adminChannel, message)
+	}
 	_, _, err := c.client.PostMessage(c.adminChannel, slack.MsgOptionText(message, false))
 	return err
 }
