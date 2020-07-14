@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -55,6 +57,14 @@ func (c *ControllerContext) GetPersistentValue(ctx context.Context, key string) 
 
 func (c *ControllerContext) SetPersistentValue(ctx context.Context, key, value string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		debug, ok := ctx.Value("debug").(bool)
+		if ok && debug {
+			c.slackClient.MessageAdminChannel(fmt.Sprintf("Faking SetPersistentValue(%q, %q)", key, value))
+			return nil
+		}
+
+		klog.Infof("Setting %s=%q", key, value)
+
 		cm, err := c.cmClient.Get(ctx, "state", metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
