@@ -1,14 +1,18 @@
 package operator
 
 import (
+	"fmt"
+
 	"github.com/eparis/bugzilla"
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type loggingReadOnlyClient struct {
-	delegate cache.BugzillaClient // intentionally not embedded to catch interface changes
+	delegate           cache.BugzillaClient // intentionally not embedded to catch interface changes
+	slackLoggingClient slack.ChannelClient
 }
 
 var _ cache.BugzillaClient = &loggingReadOnlyClient{}
@@ -50,7 +54,9 @@ func (lrc *loggingReadOnlyClient) GetExternalBugPRsOnBug(id int) ([]bugzilla.Ext
 }
 
 func (lrc *loggingReadOnlyClient) UpdateBug(id int, update bugzilla.BugUpdate) error {
-	klog.Infof("Faking UpdateBug(%d, %#v)", id, update)
+	msg := fmt.Sprintf("Faking UpdateBug(%d, %#v)", id, update)
+	klog.Info(msg)
+	lrc.slackLoggingClient.MessageChannel(msg)
 	return nil
 }
 
@@ -63,7 +69,8 @@ func (lrc *loggingReadOnlyClient) BugList(queryName, sharerID string) ([]bugzill
 }
 
 func (lrc *loggingReadOnlyClient) AddPullRequestAsExternalBug(id int, org, repo string, num int) (bool, error) {
-	klog.Infof("Faking AddPullRequestAsExternalBug(%d, %q, %q, %d)", id, org, repo, num)
+	msg := fmt.Sprintf("Faking AddPullRequestAsExternalBug(%d, %q, %q, %d)", id, org, repo, num)
+	klog.Info(msg)
+	lrc.slackLoggingClient.MessageChannel(msg)
 	return false, nil
 }
-
