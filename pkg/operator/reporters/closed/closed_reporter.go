@@ -73,7 +73,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		if messageMap[resolution] == nil {
 			messageMap[resolution] = []string{}
 		}
-		messageMap[resolution] = append(messageMap[resolution], fmt.Sprintf("> %s closed as _%s_ (%s)", bugutil.BugCountPlural(len(bugs), false), resolution, strings.Join(ids, ",")))
+		messageMap[resolution] = append(messageMap[resolution], fmt.Sprintf("> %s closed as _%s_ (%s)", bugutil.BugCountPlural(len(bugs), false), resolution, strings.Join(ids, ", ")))
 		if !resolutions.Has(resolution) {
 			resolutions.Insert(resolution)
 		}
