@@ -21,6 +21,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/newcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
@@ -81,7 +82,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
+		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
 	}
+
+	// TODO: enable by default
+	cfg.DisabledControllers = append(cfg.DisabledControllers, "new")
 
 	var scheduledReports []factory.Controller
 	for _, ar := range cfg.Schedules {
