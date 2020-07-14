@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	}
 
 	// TODO: enable by default
-	cfg.DisabledControllers = append(cfg.DisabledControllers, "new")
+	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
 
 	var scheduledReports []factory.Controller
 	for _, ar := range cfg.Schedules {
