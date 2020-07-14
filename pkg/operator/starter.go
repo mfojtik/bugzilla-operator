@@ -213,7 +213,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		if disabled.Has(c.Name()) {
 			continue
 		}
-		c.Run(ctx, 1)
+		go c.Run(ctx, 1)
 	}
 
 	go slackerInstance.Run(ctx)
