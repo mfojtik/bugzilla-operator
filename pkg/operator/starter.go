@@ -75,7 +75,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	}
 	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
 
-	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackAdminClient, slackDebugClient, cmClient)
+	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackAdminClient, slackDebugClient, cmClient)
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	var scheduledReports []factory.Controller
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
-		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg), slackChannelClient, slackDebugClient, cmClient)
+		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
 			switch r {
 			case "blocker-bugs":
@@ -187,7 +187,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					klog.Error(err)
 				}
 
-				reply, err := report(context.TODO(), newBugzillaClient(&cfg)(true))
+				reply, err := report(context.TODO(), newBugzillaClient(&cfg, slackDebugClient)(true)) // report should never write anything to BZ
 				if err != nil {
 					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 						slackgo.MsgOptionPostEphemeral(req.Event().User),
@@ -230,13 +230,13 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	return nil
 }
 
-func newBugzillaClient(cfg *config.OperatorConfig) func(debug bool) cache.BugzillaClient {
+func newBugzillaClient(cfg *config.OperatorConfig, slackDebugClient slack.ChannelClient) func(debug bool) cache.BugzillaClient {
 	return func(debug bool) cache.BugzillaClient {
 		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
 		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
 		if debug {
-			return &loggingReadOnlyClient{delegate: c}
+			return &loggingReadOnlyClient{delegate: c, slackLoggingClient: slackDebugClient}
 		}
 		return c
 	}
