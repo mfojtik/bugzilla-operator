@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/eparis/bugzilla"
@@ -56,14 +57,20 @@ func (c *NewBugController) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 
 	var errs []error
-	for _, b := range newBugs {
+	ids := []string{}
+	for i, b := range newBugs {
 		if b.ID > lastID {
 			lastID = b.ID
 		}
-		slackClient.MessageAdminChannel(fmt.Sprintf("Found new bug: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>", b.ID, b.ID, b.Summary))
-
-		// TODO: add interactivity and send to assignee
+		ids = append(ids, fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID))
+		if i > 50 {
+			ids = append(ids, fmt.Sprintf(" ... and %d more", len(newBugs)-50))
+			break
+		}
 	}
+	slackClient.MessageAdminChannel(fmt.Sprintf("Found new bugs: %s", strings.Join(ids, ", ")))
+
+	// TODO: add interactivity and send to assignee
 
 	return errorutil.NewAggregate(errs)
 }
@@ -77,8 +84,8 @@ func getNewBugs(client cache.BugzillaClient, c config.OperatorConfig, lastID int
 	if lastID == 0 {
 		aq = bugzilla.AdvancedQuery{
 			Field: "creation_ts",
-			Op:    "greaterthan",
-			Value: "-10m", // last 10 minute
+			Op:    "greaterthaneq",
+			Value: "-24h", // last day
 		}
 	}
 
