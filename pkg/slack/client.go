@@ -34,6 +34,15 @@ func BugzillaToSlackEmail(originalEmail string) string {
 	return originalEmail
 }
 
+func SlackEmailToBugzilla(slackEmail string) string {
+	for slack, bz := range peopleWithWrongSlackEmail {
+		if slackEmail == slack {
+			return bz
+		}
+	}
+	return slackEmail
+}
+
 func (c *slackClient) MessageChannel(message string) error {
 	_, _, err := c.client.PostMessage(c.channel, slack.MsgOptionText(message, false))
 	return err

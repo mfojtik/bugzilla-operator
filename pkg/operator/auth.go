@@ -25,7 +25,7 @@ func auth(cfg config.OperatorConfig, handler func(req slacker.Request, w slacker
 				return
 			}
 
-			if len(u.Profile.Email) == 0 || !users.Has(slack.BugzillaToSlackEmail(u.Profile.Email)) {
+			if len(u.Profile.Email) == 0 || !users.Has(slack.SlackEmailToBugzilla(u.Profile.Email)) {
 				denied()
 				return
 			}
