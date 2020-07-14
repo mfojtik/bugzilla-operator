@@ -47,7 +47,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	// This slack client posts only to the admin channel
 	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
 
-	recorder := slack.NewRecorder(slackDebugClient, "BugzillaOperator")
+	recorder := slack.NewRecorder(slackAdminClient, "BugzillaOperator")
 
 	slackerInstance := slacker.NewSlacker(slackClient, slacker.Options{
 		ListenAddress:     "0.0.0.0:3000",
