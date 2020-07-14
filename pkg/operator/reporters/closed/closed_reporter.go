@@ -67,8 +67,12 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	resolutions := sets.NewString()
 	for resolution, bugs := range resolutionMap {
 		ids := []string{}
-		for _, b := range bugs {
+		for i, b := range bugs {
 			ids = append(ids, fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID))
+			if i > 50 {
+				ids = append(ids, fmt.Sprintf(" ... and %d more", len(bugs)-50))
+				break
+			}
 		}
 		if messageMap[resolution] == nil {
 			messageMap[resolution] = []string{}
