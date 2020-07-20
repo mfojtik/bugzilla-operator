@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
@@ -127,13 +128,21 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				if debug {
 					ctx = context.WithValue(ctx, "debug", debug)
 				}
+
+				startTime := time.Now()
+				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+					slackgo.MsgOptionPostEphemeral(req.Event().User),
+					slackgo.MsgOptionText(fmt.Sprintf("Triggering job %q", job), false))
+				if err != nil {
+					klog.Error(err)
+				}
 				if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
 					recorder.Warningf("ReportError", "Job reported error: %v", err)
 					return
 				}
-				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+				_, _, _, err = w.Client().SendMessage(req.Event().Channel,
 					slackgo.MsgOptionPostEphemeral(req.Event().User),
-					slackgo.MsgOptionText(fmt.Sprintf("Triggered job %q", job), false))
+					slackgo.MsgOptionText(fmt.Sprintf("Finished job %q after %v", job, time.Since(startTime)), false))
 				if err != nil {
 					klog.Error(err)
 				}
