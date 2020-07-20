@@ -23,7 +23,7 @@ type NewBugController struct {
 	config config.OperatorConfig
 }
 
-const stateKey = "new-bug-controller/state"
+const stateKey = "new-bug-controller.state"
 
 func NewNewBugController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &NewBugController{ctx, operatorConfig}
