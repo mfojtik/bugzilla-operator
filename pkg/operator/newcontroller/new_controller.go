@@ -23,14 +23,14 @@ type NewBugController struct {
 	config config.OperatorConfig
 }
 
-const stateKey = "new-bug-controller/state"
+const stateKey = "new-bug-controller.state"
 
 func NewNewBugController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &NewBugController{ctx, operatorConfig}
 	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("NewBugController", recorder)
 }
 
-func (c *NewBugController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+func (c *NewBugController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
@@ -45,8 +45,10 @@ func (c *NewBugController) sync(ctx context.Context, syncCtx factory.SyncContext
 		}
 	}
 	defer func() {
-		if err := c.SetPersistentValue(ctx, stateKey, strconv.Itoa(lastID)); err != nil {
-			klog.Error(err)
+		if persistErr := c.SetPersistentValue(ctx, stateKey, strconv.Itoa(lastID)); persistErr != nil {
+			if err == nil {
+				err = persistErr
+			}
 		}
 	}()
 
