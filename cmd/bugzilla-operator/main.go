@@ -29,18 +29,7 @@ func main() {
 	defer logs.FlushLogs()
 
 	logrus.SetOutput(logs.KlogWriter{})
-	switch {
-	case klog.V(9) == true:
-		logrus.SetLevel(logrus.TraceLevel)
-	case klog.V(8) == true:
-		logrus.SetLevel(logrus.DebugLevel)
-	case klog.V(4) == true:
-		logrus.SetLevel(logrus.InfoLevel)
-	case klog.V(2) == true:
-		logrus.SetLevel(logrus.WarnLevel)
-	default:
-		logrus.SetLevel(logrus.ErrorLevel)
-	}
+	logrus.SetFormatter(&logrus.TextFormatter{})
 
 	ctx := context.TODO()
 
@@ -55,6 +44,20 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bugzilla-operator",
 		Short: "An operator that operates bugzilla numbers and automatically improve product quality",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			switch {
+			case klog.V(9) == true:
+				logrus.SetLevel(logrus.TraceLevel)
+			case klog.V(8) == true:
+				logrus.SetLevel(logrus.DebugLevel)
+			case klog.V(4) == true:
+				logrus.SetLevel(logrus.InfoLevel)
+			case klog.V(2) == true:
+				logrus.SetLevel(logrus.WarnLevel)
+			default:
+				logrus.SetLevel(logrus.ErrorLevel)
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 			os.Exit(1)
