@@ -8,11 +8,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
+	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cmd/operator"
 	"github.com/mfojtik/bugzilla-operator/pkg/version"
@@ -26,6 +27,20 @@ func main() {
 
 	logs.InitLogs()
 	defer logs.FlushLogs()
+
+	logrus.SetOutput(logs.KlogWriter{})
+	switch {
+	case klog.V(9) == true:
+		logrus.SetLevel(logrus.TraceLevel)
+	case klog.V(8) == true:
+		logrus.SetLevel(logrus.DebugLevel)
+	case klog.V(4) == true:
+		logrus.SetLevel(logrus.InfoLevel)
+	case klog.V(2) == true:
+		logrus.SetLevel(logrus.WarnLevel)
+	default:
+		logrus.SetLevel(logrus.ErrorLevel)
+	}
 
 	ctx := context.TODO()
 
