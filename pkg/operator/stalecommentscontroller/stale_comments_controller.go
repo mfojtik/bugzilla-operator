@@ -25,6 +25,8 @@ var priorityTransitions = []config.Transition{
 	{From: "unspecified", To: "low"},
 }
 
+const MinimumStaleDuration = time.Hour * 24 * 30
+
 type StaleCommentsController struct {
 	controller.ControllerContext
 	config config.OperatorConfig
@@ -76,37 +78,10 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 
 	var staleBugs []*bugzilla.Bug
 	for _, bug := range candidates {
-		comments, err := client.GetCachedBugComments(bug.ID, bug.LastChangeTime)
-		if err != nil {
-			syncCtx.Recorder().Warningf("GetCachedBugComments", err.Error())
+		if lastSignificantChangeAt, err := LastSignificantChangeAt(client, bug); err != nil {
+			syncCtx.Recorder().Warningf("GetCachedBugComments", fmt.Errorf("Skipping bug #%d: %v", bug.ID, err).Error())
 			continue
-		}
-
-		recentlyChanged := false
-	NextComment:
-		for _, cmt := range comments {
-			shortText := strings.Split(cmt.Text, "\n")[0]
-
-			for _, keyword := range botCommentKeywords {
-				if strings.Contains(cmt.Text, keyword) {
-					klog.V(4).Infof("Ignoring bot comment for #%d due to keyword %q: %s", bug.ID, keyword, shortText)
-					continue NextComment
-				}
-			}
-
-			createdAt, err := time.Parse(time.RFC3339, cmt.Time)
-			if err != nil {
-				klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Count, bug.ID, cmt.Time, err)
-				continue
-			}
-			if createdAt.After(time.Now().Add(-time.Hour * 24 * 30)) {
-				klog.V(4).Infof("Ignoring bug #%d because of recent comment #%d from %s: %s", bug.ID, cmt.Count, cmt.Time, shortText)
-				recentlyChanged = true
-				break
-			}
-		}
-
-		if !recentlyChanged {
+		} else if lastSignificantChangeAt.Before(time.Now().Add(-MinimumStaleDuration)) {
 			staleBugs = append(staleBugs, bug)
 		}
 	}
@@ -152,6 +127,43 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 	}
 
 	return errutil.NewAggregate(errors)
+}
+
+func LastSignificantChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug) (time.Time, error) {
+	comments, err := client.GetCachedBugComments(bug.ID, bug.LastChangeTime)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("GetCachedBugComments failed: %v", err)
+	}
+
+	createdAt, err := time.Parse(time.RFC3339, bug.CreationTime)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("creation time %q parse error: %v", bug.ID, err)
+	}
+
+	lastSignificantChangeAt := createdAt
+NextComment:
+	for _, cmt := range comments {
+		shortText := strings.Split(cmt.Text, "\n")[0]
+
+		for _, keyword := range botCommentKeywords {
+			if strings.Contains(cmt.Text, keyword) {
+				klog.V(4).Infof("Ignoring bot comment for #%d due to keyword %q: %s", bug.ID, keyword, shortText)
+				continue NextComment
+			}
+		}
+
+		createdAt, err := time.Parse(time.RFC3339, cmt.Time)
+		if err != nil {
+			klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Count, bug.ID, cmt.Time, err)
+			continue
+		}
+		if createdAt.After(lastSignificantChangeAt) {
+			lastSignificantChangeAt = createdAt
+			break
+		}
+	}
+
+	return lastSignificantChangeAt, nil
 }
 
 func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
