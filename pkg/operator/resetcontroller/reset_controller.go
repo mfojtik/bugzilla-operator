@@ -16,7 +16,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecommentscontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 )
 
 type ResetStaleController struct {
@@ -241,13 +241,13 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 
 	var toBeReset []*bugzilla.Bug
 	for _, bug := range staleBugs {
-		lastSignificantChangeAt, err := stalecommentscontroller.LastSignificantChangeAt(client, bug)
+		lastSignificantChangeAt, err := stalecontroller.LastSignificantChangeAt(client, bug)
 		if err != nil {
 			klog.Error(err)
 			continue
 		}
 
-		if lastSignificantChangeAt.After(time.Now().Add(-stalecommentscontroller.MinimumStaleDuration)) {
+		if lastSignificantChangeAt.After(time.Now().Add(-stalecontroller.MinimumStaleDuration)) {
 			toBeReset = append(toBeReset, bug)
 		}
 	}

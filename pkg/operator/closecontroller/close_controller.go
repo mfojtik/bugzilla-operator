@@ -16,7 +16,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecommentscontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 )
 
 var priorityTransitions = []config.Transition{
@@ -115,13 +115,13 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 
 	var toBeClosed []*bugzilla.Bug
 	for _, bug := range staleBugs {
-		lastSignificantChangeAt, err := stalecommentscontroller.LastSignificantChangeAt(client, bug)
+		lastSignificantChangeAt, err := stalecontroller.LastSignificantChangeAt(client, bug)
 		if err != nil {
 			klog.Error(err)
 			continue
 		}
 
-		if lastSignificantChangeAt.Before(time.Now().Add(-stalecommentscontroller.MinimumStaleDuration - 7*24*time.Hour)) {
+		if lastSignificantChangeAt.Before(time.Now().Add(-stalecontroller.MinimumStaleDuration - 7*24*time.Hour)) {
 			toBeClosed = append(toBeClosed, bug)
 		}
 	}
