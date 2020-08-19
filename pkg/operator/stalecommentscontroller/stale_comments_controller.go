@@ -139,7 +139,7 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 	}
 
 	for target, messages := range notifications {
-		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
+		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to or you created were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
 			strings.Join(messages, "\n"))
 
 		if err := slackClient.MessageEmail(target, message); err != nil {
