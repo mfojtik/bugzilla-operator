@@ -60,6 +60,9 @@ func (c *StaleCommentsController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpda
 var botCommentKeywords = []string{
 	"PM Score",
 	"UpcomingSprint",
+	"This bug will be evaluated during the next sprint and prioritized appropriately.",
+	"I am working on other high priority items. I will get to this bug next sprint.",
+	"This bug will be evaluated next sprint.",
 }
 
 func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
