@@ -10,11 +10,13 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecommentscontroller"
 )
 
 var priorityTransitions = []config.Transition{
@@ -87,17 +89,12 @@ func (c *CloseStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 }
 
 func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
-	return client.Search(bugzilla.Query{
+	staleBugs, err := client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
-			{
-				Field: "days_elapsed",
-				Op:    "greaterthaneq",
-				Value: "7",
-			},
 			{
 				Field: "whiteboard",
 				Op:    "substring",
@@ -112,4 +109,22 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 			"priority",
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	var toBeClosed []*bugzilla.Bug
+	for _, bug := range staleBugs {
+		lastSignificantChangeAt, err := stalecommentscontroller.LastSignificantChangeAt(client, bug)
+		if err != nil {
+			klog.Error(err)
+			continue
+		}
+
+		if lastSignificantChangeAt.Before(time.Now().Add(-stalecommentscontroller.MinimumStaleDuration - 7*24*time.Hour)) {
+			toBeClosed = append(toBeClosed, bug)
+		}
+	}
+
+	return toBeClosed, nil
 }
