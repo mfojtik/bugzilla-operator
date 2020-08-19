@@ -76,10 +76,12 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err
 	}
 
+	klog.V(4).Infof("Got %d potentially stale bugs.", len(candidates))
+
 	var staleBugs []*bugzilla.Bug
 	for _, bug := range candidates {
 		if lastSignificantChangeAt, err := LastSignificantChangeAt(client, bug); err != nil {
-			syncCtx.Recorder().Warningf("GetCachedBugComments", fmt.Errorf("Skipping bug #%d: %v", bug.ID, err).Error())
+			syncCtx.Recorder().Warningf("GetCachedBugComments", fmt.Errorf("skipping bug #%d: %v", bug.ID, err).Error())
 			continue
 		} else if lastSignificantChangeAt.Before(time.Now().Add(-MinimumStaleDuration)) {
 			staleBugs = append(staleBugs, bug)
