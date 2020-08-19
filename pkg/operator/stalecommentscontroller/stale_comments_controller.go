@@ -96,11 +96,11 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 
 			createdAt, err := time.Parse(time.RFC3339, cmt.Time)
 			if err != nil {
-				klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Id, bug.ID, cmt.Time, err)
+				klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Count, bug.ID, cmt.Time, err)
 				continue
 			}
 			if createdAt.After(time.Now().Add(-time.Hour * 24 * 30)) {
-				klog.V(4).Infof("Ignoring bug #%d because of recent comment #%d from %s: %s", bug.ID, cmt.Id, cmt.Time, shortText)
+				klog.V(4).Infof("Ignoring bug #%d because of recent comment #%d from %s: %s", bug.ID, cmt.Count, cmt.Time, shortText)
 				recentlyChanged = true
 				break
 			}
