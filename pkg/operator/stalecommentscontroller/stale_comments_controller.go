@@ -60,6 +60,9 @@ func (c *StaleCommentsController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpda
 var botCommentKeywords = []string{
 	"PM Score",
 	"UpcomingSprint",
+	"This bug will be evaluated during the next sprint and prioritized appropriately.",
+	"I am working on other high priority items. I will get to this bug next sprint.",
+	"This bug will be evaluated next sprint.",
 }
 
 func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -93,11 +96,11 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 
 			createdAt, err := time.Parse(time.RFC3339, cmt.Time)
 			if err != nil {
-				klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Id, bug.ID, cmt.Time, err)
+				klog.Warningf("Skipping comment #%d of bug #%d because of time %q parse error: %v", cmt.Count, bug.ID, cmt.Time, err)
 				continue
 			}
 			if createdAt.After(time.Now().Add(-time.Hour * 24 * 30)) {
-				klog.V(4).Infof("Ignoring bug #%d because of recent comment #%d from %s: %s", bug.ID, cmt.Id, cmt.Time, shortText)
+				klog.V(4).Infof("Ignoring bug #%d because of recent comment #%d from %s: %s", bug.ID, cmt.Count, cmt.Time, shortText)
 				recentlyChanged = true
 				break
 			}
@@ -136,7 +139,7 @@ func (c *StaleCommentsController) sync(ctx context.Context, syncCtx factory.Sync
 	}
 
 	for target, messages := range notifications {
-		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
+		message := fmt.Sprintf("Hi there!\nThese bugs you are assigned to or you created were just marked as _LifecycleStale_:\n\n%s\n\nPlease review these and remove this flag if you think they are still valid bugs.",
 			strings.Join(messages, "\n"))
 
 		if err := slackClient.MessageEmail(target, message); err != nil {
