@@ -10,11 +10,13 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecommentscontroller"
 )
 
 type ResetStaleController struct {
@@ -34,34 +36,54 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
-	var bugsToReset []*bugzilla.Bug
 	var errors []error
+
+	reasons := map[int][]string{}
+	bugsToReset := map[int]*bugzilla.Bug{}
 
 	gotInfoBugs, err := getBugsWithNoNeedInfoToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("GotInfoSearchFailed", err.Error())
 		errors = append(errors, err)
 	}
-	bugsToReset = append(bugsToReset, gotInfoBugs...)
+	for _, bug := range gotInfoBugs {
+		bugsToReset[bug.ID] = bug
+		reasons[bug.ID] = append(reasons[bug.ID], "the needinfo? flag was reset")
+	}
 
 	gotKeywordBugs, err := getBugsWithKeywordsToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("GotKeywordSearchFailed", err.Error())
 	}
-	bugsToReset = append(bugsToReset, gotKeywordBugs...)
+	for _, bug := range gotKeywordBugs {
+		bugsToReset[bug.ID] = bug
+		reasons[bug.ID] = append(reasons[bug.ID], "the bug received blocker/security keyword")
+	}
 
 	gotStatusBugs, err := getInvalidStatusBugsToReset(client, c.config)
 	if err != nil {
 		syncCtx.Recorder().Warningf("GotStatusSearchFailed", err.Error())
 	}
-	bugsToReset = append(bugsToReset, gotStatusBugs...)
+	for _, bug := range gotStatusBugs {
+		bugsToReset[bug.ID] = bug
+		reasons[bug.ID] = append(reasons[bug.ID], "the bug moved to QE")
+	}
+
+	gotRecentlyCommentedBugs, err := getRecentlyCommentedBugsToReset(client, c.config)
+	if err != nil {
+		syncCtx.Recorder().Warningf("GotRecentlyCommentedSearchFailed", err.Error())
+	}
+	for _, bug := range gotRecentlyCommentedBugs {
+		bugsToReset[bug.ID] = bug
+		reasons[bug.ID] = append(reasons[bug.ID], "the bug got commented on recently")
+	}
 
 	var resetBugLinks []string
-	for _, bug := range bugsToReset {
+	for id, bug := range bugsToReset {
 		if err := client.UpdateBug(bug.ID, bugzilla.BugUpdate{
 			DevWhiteboard: "LifecycleReset",
 			Comment: &bugzilla.BugComment{
-				Body: "The LifecycleStale keyword was removed, because the needinfo? flag was reset or the bug received blocker/security keyword.\nThe bug assignee was notified.",
+				Body: fmt.Sprintf("The LifecycleStale keyword was removed because %s.\nThe bug assignee was notified.", strings.Join(reasons[id], " and ")),
 			},
 		}); err != nil {
 			syncCtx.Recorder().Warningf("BugCloseFailed", "Failed to close bug #%d: %v", bug.ID, err)
@@ -79,7 +101,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 		}
 
 		resetBugLinks = append(resetBugLinks, bugutil.GetBugURL(*bug))
-		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after the _need_info?_ flag was reset:\n%s\n", bugutil.FormatBugMessage(*bug))
+		message := fmt.Sprintf("Following bug _LifecycleStale_ was *removed* after %s:\n%s\n", strings.Join(reasons[id], " and "), bugutil.FormatBugMessage(*bug))
 
 		if err := slackClient.MessageEmail(bug.AssignedTo, message); err != nil {
 			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver close message to %q: %v", bug.AssignedTo, err)
@@ -191,4 +213,44 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 			"priority",
 		},
 	})
+}
+
+func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzilla.Bug, error) {
+	staleBugs, err := client.Search(bugzilla.Query{
+		Classification: []string{"Red Hat"},
+		Product:        []string{"OpenShift Container Platform"},
+		Component:      c.Components.List(),
+		Advanced: []bugzilla.AdvancedQuery{
+			{
+				Field: "whiteboard",
+				Op:    "substring",
+				Value: "LifecycleStale",
+			},
+		},
+		IncludeFields: []string{
+			"id",
+			"assigned_to",
+			"reporter",
+			"severity",
+			"priority",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var toBeReset []*bugzilla.Bug
+	for _, bug := range staleBugs {
+		lastSignificantChangeAt, err := stalecommentscontroller.LastSignificantChangeAt(client, bug)
+		if err != nil {
+			klog.Error(err)
+			continue
+		}
+
+		if lastSignificantChangeAt.After(time.Now().Add(-stalecommentscontroller.MinimumStaleDuration)) {
+			toBeReset = append(toBeReset, bug)
+		}
+	}
+
+	return toBeReset, nil
 }
