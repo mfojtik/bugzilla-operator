@@ -122,6 +122,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				c, ok := controllers[job]
 				if !ok {
 					w.Reply(fmt.Sprintf("Unknown report %q", job))
+					return
 				}
 
 				ctx := ctx // shadow global ctx
