@@ -174,6 +174,11 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
+				Field: "whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleStale",
+			},
+			{
 				Field: "external_bugzilla.description",
 				Op:    "notsubstring",
 				Value: "Customer Portal",
