@@ -167,6 +167,28 @@ NextComment:
 		}
 	}
 
+	history, err := client.GetCachedBugHistory(bug.ID, bug.LastChangeTime)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("GetCachedBugHistory failed: %v", err)
+	}
+NextHistory:
+	for _, item := range history {
+		for _, c := range item.Changes {
+			if c.FieldName == "status_whiteboard" && strings.Contains(c.Removed, "LifecycleStale") && !strings.Contains(c.Added, "LifecycleStale") {
+				changedAt, err := time.Parse(time.RFC3339, item.When)
+				if err != nil {
+					klog.Warningf("Skipping change on %s of bug #%d because of time %q parse error: %v", item.When, bug.ID, err)
+					continue NextHistory
+				}
+				if changedAt.After(lastSignificantChangeAt) {
+					klog.V(4).Infof("LifecycleStale removed from #%d, counting as significant change", bug.ID)
+					lastSignificantChangeAt = changedAt
+				}
+				break
+			}
+		}
+	}
+
 	return lastSignificantChangeAt, nil
 }
 
