@@ -65,6 +65,7 @@ var botCommentKeywords = []string{
 	"This bug will be evaluated during the next sprint and prioritized appropriately.",
 	"I am working on other high priority items. I will get to this bug next sprint.",
 	"This bug will be evaluated next sprint.",
+	"bug is actively worked on",
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
