@@ -145,6 +145,8 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"keywords",
 			"reporter",
@@ -174,6 +176,8 @@ func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorC
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
@@ -207,6 +211,8 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
@@ -229,6 +235,8 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
