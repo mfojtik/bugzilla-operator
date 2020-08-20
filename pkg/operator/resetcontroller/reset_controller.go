@@ -81,7 +81,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var resetBugLinks []string
 	for id, bug := range bugsToReset {
 		if err := client.UpdateBug(bug.ID, bugzilla.BugUpdate{
-			Whiteboard: "LifecycleReset",
+			Whiteboard:    stalecontroller.WithKeyword(stalecontroller.WithoutKeyword(bug.Whiteboard, "LifecycleStale"), "LifecycleReset"),
 			Comment: &bugzilla.BugComment{
 				Body: fmt.Sprintf("The LifecycleStale keyword was removed because %s.\nThe bug assignee was notified.", strings.Join(reasons[id], " and ")),
 			},
@@ -147,6 +147,11 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 				Op:    "notsubstring",
 				Value: "LifecycleFrozen",
 			},
+			{
+				Field: "cf_devel_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleReset",
+			},
 		},
 		IncludeFields: []string{
 			"id",
@@ -157,6 +162,7 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 			"reporter",
 			"severity",
 			"priority",
+			"whiteboard",
 		},
 	})
 }
@@ -192,6 +198,8 @@ func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorC
 			"reporter",
 			"severity",
 			"priority",
+			"cf_devel_whiteboard",
+			"whiteboard",
 		},
 	})
 }
@@ -232,6 +240,7 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 			"reporter",
 			"severity",
 			"priority",
+			"whiteboard",
 		},
 	})
 }
@@ -261,6 +270,8 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 			"reporter",
 			"severity",
 			"priority",
+			"cf_devel_whiteboard",
+			"whiteboard",
 		},
 	})
 	if err != nil {

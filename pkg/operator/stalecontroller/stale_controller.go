@@ -42,9 +42,11 @@ func NewStaleController(ctx controller.ControllerContext, operatorConfig config.
 
 func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, error) {
 	klog.Infof("#%d (S:%s, P:%s, R:%s, A:%s): %s", bug.ID, bug.Severity, bug.Priority, bug.Creator, bug.AssignedTo, bug.Summary)
+
 	bugUpdate := bugzilla.BugUpdate{
-		Whiteboard: "LifecycleStale",
+		Whiteboard: WithKeyword(WithoutKeyword(bug.Whiteboard, "LifecycleReset"), "LifecycleStale"),
 	}
+
 	flags := []bugzilla.FlagChange{}
 	flags = append(flags, bugzilla.FlagChange{
 		Name:      "needinfo",
@@ -52,6 +54,7 @@ func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, erro
 		Requestee: bug.Creator,
 	})
 	bugUpdate.Flags = flags
+
 	bugUpdate.Priority = bugutil.DegradePriority(priorityTransitions, bug.Priority)
 	bugUpdate.Comment = &bugzilla.BugComment{
 		Body: c.config.StaleBugComment,
@@ -250,6 +253,36 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 			"severity",
 			"priority",
 			"summary",
+			"whiteboard",
 		},
 	})
+}
+
+func WithoutKeywordAndNonEmpty(wb string, kwd string) string {
+	if !strings.Contains(wb, kwd) {
+		return wb
+	}
+	wb = WithoutKeyword(wb, kwd)
+	if wb == "" {
+		return " "
+	}
+	return wb
+}
+
+func WithoutKeyword(wb string, kwd string) string {
+	var ws []string
+	for _, w := range strings.Split(wb, " ") {
+		if w == kwd || w == "" {
+			continue
+		}
+		ws = append(ws, w)
+	}
+	return strings.Join(ws, " ")
+}
+
+func WithKeyword(wb string, kwd string) string {
+	if strings.Contains(wb, kwd) {
+		return wb
+	}
+	return strings.TrimSpace(strings.TrimSpace(wb) + " " + kwd)
 }
