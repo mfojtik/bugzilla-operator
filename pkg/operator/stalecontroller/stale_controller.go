@@ -149,7 +149,7 @@ NextComment:
 
 		for _, keyword := range botCommentKeywords {
 			if strings.Contains(cmt.Text, keyword) {
-				klog.V(4).Infof("Ignoring bot comment for #%d due to keyword %q: %s", bug.ID, keyword, shortText)
+				klog.V(4).Infof("Ignoring comment #%d for #%d due to keyword %q: %s", cmt.Count, bug.ID, keyword, shortText)
 				continue NextComment
 			}
 		}
@@ -161,7 +161,6 @@ NextComment:
 		}
 		if createdAt.After(lastSignificantChangeAt) {
 			lastSignificantChangeAt = createdAt
-			break
 		}
 	}
 
