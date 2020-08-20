@@ -231,6 +231,11 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 				Value: "Security",
 			},
 			{
+				Field: "status_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleFrozen",
+			},
+			{
 				Field: "keywords",
 				Op:    "notsubstring",
 				Value: "Blocker",

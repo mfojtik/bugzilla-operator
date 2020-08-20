@@ -81,7 +81,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var resetBugLinks []string
 	for id, bug := range bugsToReset {
 		if err := client.UpdateBug(bug.ID, bugzilla.BugUpdate{
-			DevWhiteboard: "LifecycleReset",
+			Whiteboard: "LifecycleReset",
 			Comment: &bugzilla.BugComment{
 				Body: fmt.Sprintf("The LifecycleStale keyword was removed because %s.\nThe bug assignee was notified.", strings.Join(reasons[id], " and ")),
 			},
@@ -142,6 +142,11 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
+			{
+				Field: "status_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleFrozen",
+			},
 		},
 		IncludeFields: []string{
 			"id",
@@ -172,6 +177,11 @@ func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorC
 				Field: "status_whiteboard",
 				Op:    "notsubstring",
 				Value: "LifecycleRotten",
+			},
+			{
+				Field: "status_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleFrozen",
 			},
 		},
 		IncludeFields: []string{
@@ -208,6 +218,11 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 				Op:    "notsubstring",
 				Value: "LifecycleRotten",
 			},
+			{
+				Field: "status_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleFrozen",
+			},
 		},
 		IncludeFields: []string{
 			"id",
@@ -231,6 +246,11 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
+			},
+			{
+				Field: "status_whiteboard",
+				Op:    "notsubstring",
+				Value: "LifecycleFrozen",
 			},
 		},
 		IncludeFields: []string{
