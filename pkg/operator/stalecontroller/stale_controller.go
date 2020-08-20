@@ -102,6 +102,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 		if err := client.UpdateBug(bug.ID, *bugUpdate); err != nil {
 			errors = append(errors, err)
+			continue // don't notify on errors
 		}
 		// in some cases, the search query return zero assignee or creator, which cause the slack messages failed to deliver.
 		// in that case, try to get the bug directly, which should populate all fields.
