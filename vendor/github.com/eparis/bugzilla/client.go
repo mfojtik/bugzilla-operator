@@ -233,8 +233,8 @@ func (c *client) GetExternalBugPRsOnBug(id int) ([]ExternalBug, error) {
 // UpdateBug updates the fields of a bug on the server
 // https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#update-bug
 func (c *client) UpdateBug(id int, update BugUpdate) error {
-	logger := c.logger.WithFields(logrus.Fields{methodField: "UpdateBug", "id": id, "update": update})
 	body, err := json.Marshal(update)
+	logger := c.logger.WithFields(logrus.Fields{methodField: "UpdateBug", "id": id, "update": string(body)})
 	if err != nil {
 		return fmt.Errorf("failed to marshal update payload: %v", err)
 	}
