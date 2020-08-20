@@ -176,7 +176,7 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "notsubstring",
 				Value: "LifecycleStale",
 			},
