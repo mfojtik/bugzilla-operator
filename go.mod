@@ -28,4 +28,4 @@ require (
 	k8s.io/klog v1.0.0
 )
 
-replace github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200820090911-3f021a5476f1
+replace github.com/eparis/bugzilla => github.com/sttts/bugzilla v0.0.0-20200820095624-caf06ee7ee8b
