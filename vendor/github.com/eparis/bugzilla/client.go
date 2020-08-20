@@ -248,6 +248,7 @@ func (c *client) UpdateBug(id int, update BugUpdate) error {
 }
 
 func (c *client) request(req *http.Request, logger *logrus.Entry) ([]byte, error) {
+	logger = logger.WithField("url", req.URL).WithField("verb", req.Method)
 	if apiKey := c.getAPIKey(); len(apiKey) > 0 {
 		// some BugZilla servers are too old and can't handle the header.
 		// some don't want the query parameter. We can set both and keep
