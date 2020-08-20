@@ -113,7 +113,9 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 		staleBugLinks = append(staleBugLinks, bugutil.FormatBugMessage(*bug))
 		notifications[bug.AssignedTo] = append(notifications[bug.AssignedTo], bugutil.FormatBugMessage(*bug))
-		notifications[bug.Creator] = append(notifications[bug.Creator], bugutil.FormatBugMessage(*bug))
+		if bug.AssignedTo != bug.Creator {
+			notifications[bug.Creator] = append(notifications[bug.Creator], bugutil.FormatBugMessage(*bug))
+		}
 	}
 
 	for target, messages := range notifications {
