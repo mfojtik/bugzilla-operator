@@ -96,13 +96,15 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",

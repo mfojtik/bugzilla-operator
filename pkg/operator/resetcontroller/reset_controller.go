@@ -138,13 +138,15 @@ func getBugsWithKeywordsToReset(client cache.BugzillaClient, c config.OperatorCo
 				Value: "Security",
 			},
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"keywords",
 			"reporter",
@@ -162,18 +164,20 @@ func getInvalidStatusBugsToReset(client cache.BugzillaClient, c config.OperatorC
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "notsubstring",
 				Value: "LifecycleRotten",
 			},
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
@@ -195,18 +199,20 @@ func getBugsWithNoNeedInfoToReset(client cache.BugzillaClient, c config.Operator
 				Value: "needinfo",
 			},
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "notsubstring",
 				Value: "LifecycleRotten",
 			},
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
@@ -222,13 +228,15 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 		Component:      c.Components.List(),
 		Advanced: []bugzilla.AdvancedQuery{
 			{
-				Field: "whiteboard",
+				Field: "status_whiteboard",
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"assigned_to",
 			"reporter",
 			"severity",
