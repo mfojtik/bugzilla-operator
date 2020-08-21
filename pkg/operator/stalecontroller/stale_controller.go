@@ -117,7 +117,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		}
 		staleBugLinks = append(staleBugLinks, bugutil.FormatBugMessage(*bug))
 		notifications[bug.AssignedTo] = append(notifications[bug.AssignedTo], bugutil.FormatBugMessage(*bug))
-		if bug.AssignedTo != bug.Creator {
+		if bug.AssignedTo != bug.Creator && bug.ID != 1801755 { // #1801755 is buggy and keeps being updated successfully (code 200), but the changes never stick.
 			notifications[bug.Creator] = append(notifications[bug.Creator], bugutil.FormatBugMessage(*bug))
 		}
 	}
