@@ -62,13 +62,16 @@ func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, erro
 	return &bugUpdate, nil
 }
 
-var botCommentKeywords = []string{
+var processKeywords = []string{
 	"PM Score",
 	"UpcomingSprint",
 	"This bug will be evaluated during the next sprint and prioritized appropriately.",
 	"I am working on other high priority items. I will get to this bug next sprint.",
 	"This bug will be evaluated next sprint.",
 	"bug is actively worked on",
+}
+
+var botCommentKeywords = []string{
 	`we're marking this bug as "LifecycleStale"`,
 	"The LifecycleStale keyword was removed because",
 }
@@ -141,6 +144,15 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 }
 
 func LastSignificantChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug, operatorConfig config.OperatorConfig) (time.Time, error) {
+	keywords := append(append([]string{operatorConfig.StaleBugComment}, botCommentKeywords...), processKeywords...)
+	return LastNonKeywordChangeAt(client, bug, keywords)
+}
+
+func LastSignificantOrBotChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug) (time.Time, error) {
+	return LastNonKeywordChangeAt(client, bug, processKeywords)
+}
+
+func LastNonKeywordChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug, keywords []string) (time.Time, error) {
 	comments, err := client.GetCachedBugComments(bug.ID, bug.LastChangeTime)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("GetCachedBugComments failed: %v", err)
@@ -156,7 +168,7 @@ NextComment:
 	for _, cmt := range comments {
 		shortText := strings.Split(cmt.Text, "\n")[0]
 
-		for _, keyword := range append([]string{operatorConfig.StaleBugComment}, botCommentKeywords...) {
+		for _, keyword := range keywords {
 			if strings.Contains(cmt.Text, keyword) {
 				klog.V(4).Infof("Ignoring comment #%d for #%d due to keyword %q: %s", cmt.Count, bug.ID, keyword, shortText)
 				continue NextComment
@@ -212,15 +224,15 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 			},
 			{
 				Negate: true,
-				Field: "external_bugzilla.description",
-				Op:    "substring",
-				Value: "Customer Portal",
+				Field:  "external_bugzilla.description",
+				Op:     "substring",
+				Value:  "Customer Portal",
 			},
 			{
 				Negate: true,
-				Field: "external_bugzilla.description",
-				Op:    "substring",
-				Value: "Github",
+				Field:  "external_bugzilla.description",
+				Op:     "substring",
+				Value:  "Github",
 			},
 			{
 				Field: "bug_severity",

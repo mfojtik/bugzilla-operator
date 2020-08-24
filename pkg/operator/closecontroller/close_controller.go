@@ -123,15 +123,27 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 
 	var toBeClosed []*bugzilla.Bug
 	for _, bug := range staleBugs {
+		// wait at least MinimumStaleDuration plus a week after a user commented
 		lastSignificantChangeAt, err := stalecontroller.LastSignificantChangeAt(client, bug, c)
 		if err != nil {
 			klog.Error(err)
 			continue
 		}
-
-		if lastSignificantChangeAt.Before(time.Now().Add(-stalecontroller.MinimumStaleDuration - 7*24*time.Hour)) {
-			toBeClosed = append(toBeClosed, bug)
+		if lastSignificantChangeAt.After(time.Now().Add(-stalecontroller.MinimumStaleDuration - 7*24*time.Hour)) {
+			continue
 		}
+
+		// wait at least a week after the bot commented
+		lastSignificantOrBotChangeAt, err := stalecontroller.LastSignificantOrBotChangeAt(client, bug)
+		if err != nil {
+			klog.Error(err)
+			continue
+		}
+		if lastSignificantOrBotChangeAt.After(time.Now().Add(-7 * 24 * time.Hour)) {
+			continue
+		}
+
+		toBeClosed = append(toBeClosed, bug)
 	}
 
 	return toBeClosed, nil
