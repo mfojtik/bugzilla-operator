@@ -69,6 +69,8 @@ var botCommentKeywords = []string{
 	"I am working on other high priority items. I will get to this bug next sprint.",
 	"This bug will be evaluated next sprint.",
 	"bug is actively worked on",
+	`we're marking this bug as "LifecycleStale"`,
+	"The LifecycleStale keyword was removed because",
 }
 
 func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -84,7 +86,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 	var staleBugs []*bugzilla.Bug
 	for _, bug := range candidates {
-		if lastSignificantChangeAt, err := LastSignificantChangeAt(client, bug); err != nil {
+		if lastSignificantChangeAt, err := LastSignificantChangeAt(client, bug, c.config); err != nil {
 			syncCtx.Recorder().Warningf("GetCachedBugComments", fmt.Errorf("skipping bug #%d: %v", bug.ID, err).Error())
 			continue
 		} else if lastSignificantChangeAt.Before(time.Now().Add(-MinimumStaleDuration)) {
@@ -138,7 +140,7 @@ func (c *StaleController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	return errutil.NewAggregate(errors)
 }
 
-func LastSignificantChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug) (time.Time, error) {
+func LastSignificantChangeAt(client cache.BugzillaClient, bug *bugzilla.Bug, operatorConfig config.OperatorConfig) (time.Time, error) {
 	comments, err := client.GetCachedBugComments(bug.ID, bug.LastChangeTime)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("GetCachedBugComments failed: %v", err)
@@ -154,7 +156,7 @@ NextComment:
 	for _, cmt := range comments {
 		shortText := strings.Split(cmt.Text, "\n")[0]
 
-		for _, keyword := range botCommentKeywords {
+		for _, keyword := range append([]string{operatorConfig.StaleBugComment}, botCommentKeywords...) {
 			if strings.Contains(cmt.Text, keyword) {
 				klog.V(4).Infof("Ignoring comment #%d for #%d due to keyword %q: %s", cmt.Count, bug.ID, keyword, shortText)
 				continue NextComment
