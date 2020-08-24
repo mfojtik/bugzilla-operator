@@ -100,6 +100,11 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 				Op:    "substring",
 				Value: "LifecycleStale",
 			},
+			{
+				Field: "external_bugzilla.description",
+				Op:    "notsubstring",
+				Value: "Customer Portal",
+			},
 		},
 		IncludeFields: []string{
 			"id",
