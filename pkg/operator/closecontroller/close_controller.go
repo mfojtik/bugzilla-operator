@@ -117,7 +117,7 @@ func getBugsToClose(client cache.BugzillaClient, c config.OperatorConfig) ([]*bu
 
 	var toBeClosed []*bugzilla.Bug
 	for _, bug := range staleBugs {
-		lastSignificantChangeAt, err := stalecontroller.LastSignificantChangeAt(client, bug)
+		lastSignificantChangeAt, err := stalecontroller.LastSignificantChangeAt(client, bug, c)
 		if err != nil {
 			klog.Error(err)
 			continue
