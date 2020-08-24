@@ -211,13 +211,15 @@ func getPotentiallyStaleBugs(client cache.BugzillaClient, c config.OperatorConfi
 				Value: "LifecycleStale",
 			},
 			{
+				Negate: true,
 				Field: "external_bugzilla.description",
-				Op:    "notsubstring",
+				Op:    "substring",
 				Value: "Customer Portal",
 			},
 			{
+				Negate: true,
 				Field: "external_bugzilla.description",
-				Op:    "notsubstring",
+				Op:    "substring",
 				Value: "Github",
 			},
 			{
