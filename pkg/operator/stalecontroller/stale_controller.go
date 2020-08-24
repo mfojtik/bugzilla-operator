@@ -192,7 +192,7 @@ NextComment:
 NextHistory:
 	for _, item := range history {
 		for _, c := range item.Changes {
-			if c.FieldName == "status_whiteboard" && strings.Contains(c.Removed, "LifecycleStale") && !strings.Contains(c.Added, "LifecycleStale") {
+			if c.FieldName == "whiteboard" && strings.Contains(c.Removed, "LifecycleStale") && !strings.Contains(c.Added, "LifecycleStale") {
 				changedAt, err := time.Parse(time.RFC3339, item.When)
 				if err != nil {
 					klog.Warningf("Skipping change on %s of bug #%d because of time %q parse error: %v", item.When, bug.ID, item.When, err)
