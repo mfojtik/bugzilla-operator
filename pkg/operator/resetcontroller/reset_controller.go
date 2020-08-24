@@ -81,7 +81,7 @@ func (c *ResetStaleController) sync(ctx context.Context, syncCtx factory.SyncCon
 	var resetBugLinks []string
 	for id, bug := range bugsToReset {
 		if err := client.UpdateBug(bug.ID, bugzilla.BugUpdate{
-			Whiteboard:    stalecontroller.WithKeyword(stalecontroller.WithoutKeyword(bug.Whiteboard, "LifecycleStale"), "LifecycleReset"),
+			Whiteboard: stalecontroller.WithKeyword(stalecontroller.WithoutKeyword(bug.Whiteboard, "LifecycleStale"), "LifecycleReset"),
 			Comment: &bugzilla.BugComment{
 				Body: fmt.Sprintf("The LifecycleStale keyword was removed because %s.\nThe bug assignee was notified.", strings.Join(reasons[id], " and ")),
 			},
