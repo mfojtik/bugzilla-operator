@@ -52,7 +52,7 @@ type triageResult struct {
 	severityCount         map[string]int
 }
 
-func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
+func triageBugs(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 	r := triageResult{
 		priorityCount: map[string]int{},
 		severityCount: map[string]int{},
@@ -60,7 +60,6 @@ func triageBug(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult {
 	for _, bug := range bugs {
 		if strings.Contains(bug.Whiteboard, "LifecycleStale") {
 			r.staleCount++
-			continue
 		}
 
 		r.severityCount[bug.Severity]++
@@ -126,13 +125,13 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	return nil
 }
 
-func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
-	return client.Search(bugzilla.Query{
+func getBugsQuery(config *config.OperatorConfig, components []string, targetRelease []string) bugzilla.Query {
+	return bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
 		Component:      components,
-		TargetRelease:  config.Release.TargetReleases,
+		TargetRelease:  targetRelease,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "bug_severity",
@@ -158,11 +157,14 @@ func getBlockerList(client cache.BugzillaClient, config *config.OperatorConfig, 
 			"target_release",
 			"whiteboard",
 		},
-	})
+	}
 }
 
 func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, *notificationMap, error) {
-	blockerBugs, err := getBlockerList(client, config, components)
+	activeBugsQuery := getBugsQuery(config, components, append([]string{"---"}, config.Release.TargetReleases...))
+	triageBlockerQuery := getBugsQuery(config, components, append([]string{"---"}, config.Release.CurrentTargetRelease))
+
+	activeBugs, err := client.Search(activeBugsQuery)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", nil, err
@@ -178,12 +180,12 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	}
 
 	peopleBugsMap := map[string][]bugzilla.Bug{}
-	for _, b := range blockerBugs {
+	for _, b := range activeBugs {
 		peopleBugsMap[b.AssignedTo] = append(peopleBugsMap[b.AssignedTo], *b)
 	}
 
 	for person, assignedBugs := range peopleBugsMap {
-		result := triageBug(config.Release.CurrentTargetRelease, assignedBugs...)
+		result := triageBugs(config.Release.CurrentTargetRelease, assignedBugs...)
 
 		triageResult.blockers[person] = result.blockers
 		triageResult.blockerIDs[person] = result.blockerIDs
@@ -199,8 +201,10 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 
 	channelStats := getStatsForChannel(
 		config.Release.CurrentTargetRelease,
-		len(blockerBugs),
+		len(activeBugs),
 		triageResult.blockers,
+		activeBugsQuery,
+		triageBlockerQuery,
 		triageResult.severityCount,
 		triageResult.priorityCount,
 		triageResult.staleCount,
@@ -226,7 +230,7 @@ func (c *BlockersReporter) sendStatsForPeople(triage notificationMap, slackClien
 	var messages []string
 	for person, b := range triage.blockers {
 		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d blockers", makeBugzillaLink(person, triage.blockerIDs[person]...), len(b)))
+			messages = append(messages, fmt.Sprintf("> %s: %d active bugs", makeBugzillaLink(person, triage.blockerIDs[person]...), len(b)))
 		}
 	}
 	for person, b := range triage.needTriage {
@@ -237,7 +241,7 @@ func (c *BlockersReporter) sendStatsForPeople(triage notificationMap, slackClien
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(targetRelease string, totalCount int, blockers map[string][]string, severity, priority map[string]int, stale int) []string {
+func getStatsForChannel(targetRelease string, activeBugsCount int, triageBlockers map[string][]string, activeBugsQuery, triageBlockerQuery bugzilla.Query, severity, priority map[string]int, stale int) []string {
 	sortedPrioNames := []string{
 		"urgent",
 		"high",
@@ -257,17 +261,19 @@ func getStatsForChannel(targetRelease string, totalCount int, blockers map[strin
 			priorityMessages = append(priorityMessages, fmt.Sprintf("%d _%s_", priority[p], p))
 		}
 	}
-	totalTargetBlockerCount := 0
-	for p := range blockers {
-		totalTargetBlockerCount += len(blockers[p])
+	triageBlockerCount := 0
+	for p := range triageBlockers {
+		triageBlockerCount += len(triageBlockers[p])
 	}
 
+	activeBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + activeBugsQuery.Values().Encode())
+	triageBlockerQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + triageBlockerQuery.Values().Encode())
+
 	return []string{
-		fmt.Sprintf("> All Active 4.x and 3.11 Bugs: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-active-blockers&sharer_id=290313|%d>", totalCount-stale),
+		fmt.Sprintf("> All active 4.x and 3.11 Bugs: <%s|%d>", activeBugsQueryURL.String(), activeBugsCount),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
-		fmt.Sprintf("> %s Release Blockers Count: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-current-blockers&sharer_id=290313|%d>", targetRelease,
-			totalTargetBlockerCount),
+		fmt.Sprintf("> %s Release Blockers Count: <%s|%d>", targetRelease, triageBlockerQueryURL.String(), triageBlockerCount),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", stale),
 	}
 }

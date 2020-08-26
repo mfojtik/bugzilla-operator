@@ -34,7 +34,6 @@ data:
       - 4.4.z
       - 4.5.0
       - 4.6.0
-      - ---
     staleBugCloseComment: >
       This bug hasn't had any activity 7 days after it was marked as LifecycleStale, so we are closing this bug as WONTFIX.
       If you consider this bug still valuable, please reopen it or create new bug.
