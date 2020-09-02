@@ -25,6 +25,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/newcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/incoming"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
@@ -97,6 +98,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			switch r {
 			case "blocker-bugs":
 				scheduledReports = append(scheduledReports, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
+			case "incoming-bugs":
+				scheduledReports = append(scheduledReports, incoming.NewIncomingReporter(reporterContext, ar.When, cfg, recorder))
 			case "closed-bugs":
 				scheduledReports = append(scheduledReports, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
 			case "upcoming-sprint":
@@ -171,6 +174,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				"closed-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					return closed.Report(ctx, client, recorder, &cfg, cfg.Components.List())
+				},
+				"incoming-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					// TODO: restrict components to one team
+					report, _, err := incoming.Report(ctx, client, recorder, &cfg)
+					return report, err
 				},
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
