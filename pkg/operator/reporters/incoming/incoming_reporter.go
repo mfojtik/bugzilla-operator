@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
+
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -81,7 +83,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	assigneeReports := map[string]AssigneeReport{}
 
 	for _, bug := range incomingBugs {
-		bugMessage := fmt.Sprintf(":bugzilla: [NEW][%s/%s][%s] <https://bugzilla.redhat.com/show_bug.cgi?id=%d|%s>", bug.Severity, bug.Priority, strings.Join(bug.Component, ","), bug.ID, bug.Summary)
+		bugMessage := fmt.Sprintf(":bugzilla: %s", bugutil.FormatBugMessage(*bug))
 		channelReport = append(channelReport, "> "+bugMessage)
 		currentReport, ok := assigneeReports[bug.AssignedTo]
 		if ok {
@@ -120,7 +122,9 @@ func getIncomingBugsList(client cache.BugzillaClient, config *config.OperatorCon
 			"assigned_to",
 			"keywords",
 			"status",
+			"component",
 			"resolution",
+			"summary",
 			"severity",
 			"priority",
 			"target_release",
