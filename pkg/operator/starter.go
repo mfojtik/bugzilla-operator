@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reassigncontroller"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -85,6 +87,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
+		"reassign":           reassigncontroller.NewReassignController(controllerContext, cfg, recorder),
 	}
 
 	// TODO: enable by default
