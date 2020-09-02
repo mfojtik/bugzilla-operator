@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -91,21 +90,39 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
 
 	var scheduledReports []factory.Controller
+	var reportNames sets.String
+	newReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
+		switch name {
+		case "blocker-bugs":
+			return blockers.NewBlockersReporter(ctx, components, when, cfg, recorder)
+		case "incoming-bugs":
+			return incoming.NewIncomingReporter(ctx, when, cfg, recorder)
+		case "closed-bugs":
+			return closed.NewClosedReporter(ctx, components, when, cfg, recorder)
+		case "upcoming-sprint":
+			return upcomingsprint.NewUpcomingSprintReporter(controllerContext, components, when, cfg, recorder)
+		default:
+			return nil
+		}
+	}
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
-			switch r {
-			case "blocker-bugs":
-				scheduledReports = append(scheduledReports, blockers.NewBlockersReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
-			case "incoming-bugs":
-				scheduledReports = append(scheduledReports, incoming.NewIncomingReporter(reporterContext, ar.When, cfg, recorder))
-			case "closed-bugs":
-				scheduledReports = append(scheduledReports, closed.NewClosedReporter(reporterContext, ar.Components, ar.When, cfg, recorder))
-			case "upcoming-sprint":
-				scheduledReports = append(scheduledReports, upcomingsprint.NewUpcomingSprintReporter(controllerContext, cfg.Components.List(), ar.When, cfg, recorder))
+			if c := newReport(r, reporterContext, ar.Components, ar.When); c != nil {
+				scheduledReports = append(scheduledReports, c)
+				reportNames.Insert(r)
 			}
 		}
+	}
+	debugReportControllers := map[string]factory.Controller{}
+	for _, r := range reportNames.List() {
+		debugReportControllers[r] = newReport(r, controllerContext, cfg.Components.List(), nil)
+	}
+
+	var controllerNames sets.String
+	for n := range controllers {
+		controllerNames.Insert(n)
 	}
 
 	// allow to manually trigger a controller to run out of its normal schedule
@@ -113,56 +130,52 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		return func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
 
-			switch job {
-			case "help", "":
-				names := []string{}
-				for n := range controllers {
-					names = append(names, n)
-				}
-				sort.Strings(names)
-				w.Reply(strings.Join(names, "\n"))
-			default:
-				c, ok := controllers[job]
-				if !ok {
-					w.Reply(fmt.Sprintf("Unknown report %q", job))
+			c, ok := controllers[job]
+			if !ok {
+				if !debug {
+					w.Reply(fmt.Sprintf("Unknown job %q", job))
 					return
 				}
-
-				ctx := ctx // shadow global ctx
-				if debug {
-					ctx = context.WithValue(ctx, "debug", debug)
-				}
-
-				startTime := time.Now()
-				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
-					slackgo.MsgOptionPostEphemeral(req.Event().User),
-					slackgo.MsgOptionText(fmt.Sprintf("Triggering job %q", job), false))
-				if err != nil {
-					klog.Error(err)
-				}
-				if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
-					recorder.Warningf("ReportError", "Job reported error: %v", err)
+				if c, ok = debugReportControllers[job]; !ok {
+					w.Reply(fmt.Sprintf("Unknown job %q", job))
 					return
 				}
-				_, _, _, err = w.Client().SendMessage(req.Event().Channel,
-					slackgo.MsgOptionPostEphemeral(req.Event().User),
-					slackgo.MsgOptionText(fmt.Sprintf("Finished job %q after %v", job, time.Since(startTime)), false))
-				if err != nil {
-					klog.Error(err)
-				}
+			}
+
+			ctx := ctx // shadow global ctx
+			if debug {
+				ctx = context.WithValue(ctx, "debug", debug)
+			}
+
+			startTime := time.Now()
+			_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+				slackgo.MsgOptionPostEphemeral(req.Event().User),
+				slackgo.MsgOptionText(fmt.Sprintf("Triggering job %q", job), false))
+			if err != nil {
+				klog.Error(err)
+			}
+			if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
+				recorder.Warningf("ReportError", "Job reported error: %v", err)
+				return
+			}
+			_, _, _, err = w.Client().SendMessage(req.Event().Channel,
+				slackgo.MsgOptionPostEphemeral(req.Event().User),
+				slackgo.MsgOptionText(fmt.Sprintf("Finished job %q after %v", job, time.Since(startTime)), false))
+			if err != nil {
+				klog.Error(err)
 			}
 		}
 	}
 	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
-		Description: "Trigger a job to run.",
+		Description: fmt.Sprintf("Trigger a job to run: %s", strings.Join(controllerNames.List(), ", ")),
 		Handler:     auth(cfg, runJob(false), "group:admins"),
 	})
 	slackerInstance.Command("admin debug <job>", &slacker.CommandDefinition{
-		Description: "Trigger a job to run in debug mode.",
+		Description: fmt.Sprintf("Trigger a job to run in debug mode: %s", strings.Join(append(controllerNames.List(), reportNames.List()...), ", ")),
 		Handler:     auth(cfg, runJob(true), "group:admins"),
 	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
-		Description: "Run a report and print result here.",
+		Description: fmt.Sprintf("Run a report and print result here: %s", strings.Join(reportNames.List(), ", ")),
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
 			reports := map[string]func(ctx context.Context, client cache.BugzillaClient) (string, error){
@@ -188,39 +201,29 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				// don't forget to also add new reports above in the trigger command
 			}
 
-			switch job {
-			case "help", "":
-				names := []string{}
-				for s := range reports {
-					names = append(names, s)
-				}
-				sort.Strings(names)
-				w.Reply(strings.Join(names, "\n"))
-			default:
-				report, ok := reports[job]
-				if !ok {
-					w.Reply(fmt.Sprintf("Unknown report %q", job))
-					break
-				}
+			report, ok := reports[job]
+			if !ok {
+				w.Reply(fmt.Sprintf("Unknown report %q", job))
+				return
+			}
 
+			_, _, _, err := w.Client().SendMessage(req.Event().Channel,
+				slackgo.MsgOptionPostEphemeral(req.Event().User),
+				slackgo.MsgOptionText(fmt.Sprintf("Running job %q. This might take some seconds.", job), false))
+			if err != nil {
+				klog.Error(err)
+			}
+
+			reply, err := report(context.TODO(), newBugzillaClient(&cfg, slackDebugClient)(true)) // report should never write anything to BZ
+			if err != nil {
 				_, _, _, err := w.Client().SendMessage(req.Event().Channel,
 					slackgo.MsgOptionPostEphemeral(req.Event().User),
-					slackgo.MsgOptionText(fmt.Sprintf("Running job %q. This might take some seconds.", job), false))
+					slackgo.MsgOptionText(fmt.Sprintf("Error running report %v: %v", job, err), false))
 				if err != nil {
 					klog.Error(err)
 				}
-
-				reply, err := report(context.TODO(), newBugzillaClient(&cfg, slackDebugClient)(true)) // report should never write anything to BZ
-				if err != nil {
-					_, _, _, err := w.Client().SendMessage(req.Event().Channel,
-						slackgo.MsgOptionPostEphemeral(req.Event().User),
-						slackgo.MsgOptionText(fmt.Sprintf("Error running report %v: %v", job, err), false))
-					if err != nil {
-						klog.Error(err)
-					}
-				} else {
-					w.Reply(reply)
-				}
+			} else {
+				w.Reply(reply)
 			}
 		},
 	})
