@@ -87,8 +87,11 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		channelReport = append(channelReport, "> "+bugMessage)
 		currentReport, ok := assigneeReports[bug.AssignedTo]
 		if ok {
-			currentReport.reports = append(currentReport.reports, bugMessage)
-			currentReport.bugIDs = append(currentReport.bugIDs, bug.ID)
+			newReport := AssigneeReport{
+				reports: append(currentReport.reports, bugMessage),
+				bugIDs:  append(currentReport.bugIDs, bug.ID),
+			}
+			assigneeReports[bug.AssignedTo] = newReport
 			continue
 		}
 		assigneeReports[bug.AssignedTo] = AssigneeReport{
@@ -101,7 +104,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 }
 
 func (c *IncomingReporter) markAsReported(client cache.BugzillaClient, id int) error {
-	return client.UpdateBug(id, bugzilla.BugUpdate{DevWhiteboard: "AssigneeNotified"})
+	return client.UpdateBug(id, bugzilla.BugUpdate{DevWhiteboard: "AssigneeNotified", MinorUpdate: true})
 }
 
 func getIncomingBugsList(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
