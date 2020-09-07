@@ -90,7 +90,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
 
 	var scheduledReports []factory.Controller
-	var reportNames sets.String
+	reportNames := sets.NewString()
 	newReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
 		switch name {
 		case "blocker-bugs":
