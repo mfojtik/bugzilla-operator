@@ -120,7 +120,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		debugReportControllers[r] = newReport(r, controllerContext, cfg.Components.List(), nil)
 	}
 
-	var controllerNames sets.String
+	controllerNames := sets.NewString()
 	for n := range controllers {
 		controllerNames.Insert(n)
 	}
