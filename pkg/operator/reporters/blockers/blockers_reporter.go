@@ -32,6 +32,14 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_ field set and the _Target Release_ set, so I can stop bothering you :-)\n\n"
 )
 
+var (
+	seriousKeywords = []string{
+		"ServiceDeliveryBlocker",
+		"TestBlocker",
+		"UpgradeBlocker",
+	}
+)
+
 func NewBlockersReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig,
 	recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
@@ -43,6 +51,7 @@ func NewBlockersReporter(ctx controller.ControllerContext, components []string, 
 }
 
 type triageResult struct {
+	seriousKeywordsIDs    map[string][]int
 	blockers              []string
 	blockerIDs            []int
 	needUpcomingSprint    []string
@@ -58,6 +67,16 @@ func triageBugs(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult 
 		severityCount: map[string]int{},
 	}
 	for _, bug := range bugs {
+		keywords := sets.NewString(bug.Keywords...)
+		for _, keyword := range seriousKeywords {
+			if keywords.Has(keyword) {
+				if r.seriousKeywordsIDs == nil {
+					r.seriousKeywordsIDs = make(map[string][]int)
+				}
+				r.seriousKeywordsIDs[keyword] = append(r.seriousKeywordsIDs[keyword], bug.ID)
+			}
+		}
+
 		if strings.Contains(bug.Whiteboard, "LifecycleStale") {
 			r.staleCount++
 		}
@@ -65,7 +84,6 @@ func triageBugs(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult 
 		r.severityCount[bug.Severity]++
 		r.priorityCount[bug.Priority]++
 
-		keywords := sets.NewString(bug.Keywords...)
 		if !keywords.Has("UpcomingSprint") {
 			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(bug))
 			r.needUpcomingSprintIDs = append(r.needUpcomingSprintIDs, bug.ID)
@@ -86,6 +104,8 @@ func triageBugs(currentTargetRelease string, bugs ...bugzilla.Bug) triageResult 
 }
 
 type notificationMap struct {
+	seriousKeywordsIDs map[string][]int
+
 	blockers   map[string][]string
 	blockerIDs map[string][]int
 
@@ -171,12 +191,13 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	}
 
 	triageResult := &notificationMap{
-		blockers:      make(map[string][]string),
-		blockerIDs:    make(map[string][]int),
-		needTriage:    make(map[string][]string),
-		needTriageIDs: make(map[string][]int),
-		priorityCount: make(map[string]int),
-		severityCount: make(map[string]int),
+		seriousKeywordsIDs: make(map[string][]int),
+		blockers:           make(map[string][]string),
+		blockerIDs:         make(map[string][]int),
+		needTriage:         make(map[string][]string),
+		needTriageIDs:      make(map[string][]int),
+		priorityCount:      make(map[string]int),
+		severityCount:      make(map[string]int),
 	}
 
 	peopleBugsMap := map[string][]bugzilla.Bug{}
@@ -186,6 +207,12 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 
 	for person, assignedBugs := range peopleBugsMap {
 		result := triageBugs(config.Release.CurrentTargetRelease, assignedBugs...)
+
+		if result.seriousKeywordsIDs != nil {
+			for key, value := range result.seriousKeywordsIDs {
+				triageResult.seriousKeywordsIDs[key] = append(triageResult.seriousKeywordsIDs[key], value...)
+			}
+		}
 
 		triageResult.blockers[person] = result.blockers
 		triageResult.blockerIDs[person] = result.blockerIDs
@@ -202,6 +229,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	channelStats := getStatsForChannel(
 		config.Release.CurrentTargetRelease,
 		len(activeBugs),
+		triageResult.seriousKeywordsIDs,
 		triageResult.blockers,
 		activeBugsQuery,
 		triageBlockerQuery,
@@ -209,6 +237,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		triageResult.priorityCount,
 		triageResult.staleCount,
 	)
+
 	report := fmt.Sprintf("\n:bug: *Today 4.x Bug Report:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
 
 	return report, triageResult, nil
@@ -241,7 +270,7 @@ func (c *BlockersReporter) sendStatsForPeople(triage notificationMap, slackClien
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(targetRelease string, activeBugsCount int, triageBlockers map[string][]string, activeBugsQuery, triageBlockerQuery bugzilla.Query, severity, priority map[string]int, stale int) []string {
+func getStatsForChannel(targetRelease string, activeBugsCount int, seriousKeywordsIDs map[string][]int, triageBlockers map[string][]string, activeBugsQuery, triageBlockerQuery bugzilla.Query, severity, priority map[string]int, stale int) []string {
 	sortedPrioNames := []string{
 		"urgent",
 		"high",
@@ -269,11 +298,22 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, triageBlocker
 	activeBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + activeBugsQuery.Values().Encode())
 	triageBlockerQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + triageBlockerQuery.Values().Encode())
 
-	return []string{
+	lines := []string{
 		fmt.Sprintf("> All active 4.x and 3.11 Bugs: <%s|%d>", activeBugsQueryURL.String(), activeBugsCount),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
 		fmt.Sprintf("> %s Release Blockers Count: <%s|%d>", targetRelease, triageBlockerQueryURL.String(), triageBlockerCount),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", stale),
 	}
+
+	if seriousKeywordsIDs != nil {
+		for _, keyword := range seriousKeywords {
+			if bugIDs := seriousKeywordsIDs[keyword]; len(bugIDs) > 0 {
+				keywordURL := makeBugzillaLink(fmt.Sprintf("%d", len(bugIDs)), bugIDs...)
+				lines = append(lines, fmt.Sprintf("> Bugs with _%s_: %s", keyword, keywordURL))
+			}
+		}
+	}
+
+	return lines
 }
