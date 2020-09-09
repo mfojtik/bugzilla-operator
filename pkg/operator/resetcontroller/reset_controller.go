@@ -250,6 +250,7 @@ func getRecentlyCommentedBugsToReset(client cache.BugzillaClient, c config.Opera
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Component:      c.Components.List(),
+		Status:         []string{"NEW", "ASSIGNED", "POST", "MODIFIED", "ON_DEV"},
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "status_whiteboard",
