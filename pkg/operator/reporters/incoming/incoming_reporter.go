@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
-
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
@@ -29,10 +28,16 @@ func (c *IncomingReporter) sync(ctx context.Context, syncContext factory.SyncCon
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
-	channelReport, assigneeReports, err := Report(ctx, client, syncContext.Recorder(), &c.config)
+	channelReport, assigneeReports, bugs, err := Report(ctx, client, syncContext.Recorder(), &c.config)
 	if err != nil {
 		return err
 	}
+
+	if err := updateIncomingReport(c.ControllerContext, bugs); err != nil {
+		syncContext.Recorder().Warningf("IncomingReporterFailed", "Error updating bug incoming rate report: %v", err)
+		return err
+	}
+
 	if len(assigneeReports) == 0 {
 		return nil
 	}
@@ -72,11 +77,11 @@ type AssigneeReport struct {
 	reports []string
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, map[string]AssigneeReport, error) {
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, map[string]AssigneeReport, []*bugzilla.Bug, error) {
 	incomingBugs, err := getIncomingBugsList(client, config)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	var channelReport []string
@@ -100,7 +105,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		}
 	}
 
-	return strings.Join(channelReport, "\n"), assigneeReports, nil
+	return strings.Join(channelReport, "\n"), assigneeReports, incomingBugs, nil
 }
 
 func (c *IncomingReporter) markAsReported(client cache.BugzillaClient, id int) error {

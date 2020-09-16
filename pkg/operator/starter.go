@@ -190,7 +190,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				},
 				"incoming-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					report, _, err := incoming.Report(ctx, client, recorder, &cfg)
+					report, _, _, err := incoming.Report(ctx, client, recorder, &cfg)
 					return report, err
 				},
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
