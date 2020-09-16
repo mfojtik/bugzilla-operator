@@ -17,6 +17,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
@@ -78,9 +79,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackAdminClient, slackDebugClient, cmClient)
 	controllers := map[string]factory.Controller{
-		"stale":       stalecontroller.NewStaleController(controllerContext, cfg, recorder),
-		"stale-reset": resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
-		//"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
+		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
+		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
+		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
 	}
