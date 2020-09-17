@@ -93,6 +93,8 @@ func updateIncomingReport(c controller.ControllerContext, bugs []*bugzilla.Bug) 
 	// cap on last 30d of reports (2x a day)
 	if len(report.Reports) > 62 {
 		report.Reports = append(report.Reports[1:len(report.Reports)-1], *todayReport)
+	} else {
+		report.Reports = append(report.Reports, *todayReport)
 	}
 
 	reportJSON, err := report.asJSONString()
