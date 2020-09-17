@@ -74,6 +74,9 @@ func updateIncomingReport(c controller.ControllerContext, bugs []*bugzilla.Bug) 
 			Name:  c,
 			Count: count,
 		})
+	}
+
+	for c, count := range severityReport {
 		todayReport.Severities = append(todayReport.Severities, SeverityCount{
 			Name:  c,
 			Count: count,
