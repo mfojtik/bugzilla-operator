@@ -50,6 +50,9 @@ func (r IncomingReport) asJSONString() (string, error) {
 // incomingReportFromJSONString decode string that contain report in JSON
 func incomingReportFromJSONString(in string) (IncomingReport, error) {
 	r := IncomingReport{}
+	if len(in) == 0 {
+		return IncomingReport{}, nil
+	}
 	err := json.Unmarshal([]byte(in), &r)
 	return r, err
 }
@@ -81,6 +84,7 @@ func updateIncomingReport(c controller.ControllerContext, bugs []*bugzilla.Bug) 
 	if err != nil {
 		return err
 	}
+
 	report, err := incomingReportFromJSONString(reportString)
 	if err != nil {
 		return err
