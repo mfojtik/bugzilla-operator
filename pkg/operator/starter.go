@@ -97,6 +97,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			return blockers.NewBlockersReporter(ctx, components, when, cfg, recorder)
 		case "incoming-bugs":
 			return incoming.NewIncomingReporter(ctx, when, cfg, recorder)
+		case "incoming-stats":
+			return incoming.NewIncomingStatsReporter(ctx, when, cfg, recorder)
 		case "closed-bugs":
 			return closed.NewClosedReporter(ctx, components, when, cfg, recorder)
 		case "upcoming-sprint":
@@ -191,6 +193,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				"incoming-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					report, _, _, err := incoming.Report(ctx, client, recorder, &cfg)
+					return report, err
+				},
+				"incoming-stats": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					// TODO: restrict components to one team
+					report, err := incoming.ReportStats(ctx, controllerContext, recorder, &cfg)
 					return report, err
 				},
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
