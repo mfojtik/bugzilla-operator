@@ -56,21 +56,22 @@ func ReportStats(ctx context.Context, controllerCtx controller.ControllerContext
 	return strings.Join(slackMessages, "\n"), nil
 }
 
-func linkToBugList(component string, severity string) string {
+func linkToBugList(reportType string, name string) string {
 	listUrl, _ := url.Parse("https://bugzilla.redhat.com")
 	listUrl.Path += "buglist.cgi"
 	params := url.Values{}
 	params.Add("bug_status", "__open__")
-	if len(component) > 0 {
-		params.Add("component", component)
-	}
-	if len(severity) > 0 {
-		params.Add("bug_severity", severity)
+	switch reportType {
+	case "component":
+		params.Add("component", name)
+	case "severity":
+		params.Add("bug_severity", name)
 	}
 	params.Add("product", "OpenShift Container Platform")
 	params.Add("query_format", "advanced")
 	listUrl.RawQuery = params.Encode()
-	return fmt.Sprintf("<%s|%s>", listUrl.String(), component)
+
+	return fmt.Sprintf("<%s|%s>", listUrl.String(), name)
 }
 
 func countTotal(report map[string]int) int {
@@ -95,22 +96,18 @@ func reportToSlackMessages(reportType string, curReport, prevReport map[string]i
 	for name, count := range curReport {
 		prevWeekCount, ok := prevReport[name]
 		prevWeekCountMessage := ""
-		if ok {
-			switch {
-			case prevWeekCount == count:
-				prevWeekCountMessage = " (same as previous week)"
-			case prevWeekCount > count:
-				prevWeekCountMessage = fmt.Sprintf(" (:arrow_down: %d)", count-prevWeekCount)
-			case prevWeekCount < count:
-				prevWeekCountMessage = fmt.Sprintf(" (:arrow_up_small: %d)", count-prevWeekCount)
-			}
+		if !ok {
+			continue
 		}
-		switch reportType {
-		case "component":
-			slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d %s", linkToBugList(name, ""), count, prevWeekCountMessage))
-		case "severity":
-			slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d %s", linkToBugList("", name), count, prevWeekCountMessage))
+		switch {
+		case prevWeekCount == count:
+			prevWeekCountMessage = " (same as previous week)"
+		case prevWeekCount > count:
+			prevWeekCountMessage = fmt.Sprintf(" (:arrow_down: %d)", count-prevWeekCount)
+		case prevWeekCount < count:
+			prevWeekCountMessage = fmt.Sprintf(" (:arrow_up_small: %d)", count-prevWeekCount)
 		}
+		slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d %s", linkToBugList(reportType, name), count, prevWeekCountMessage))
 	}
 	return slackMessages
 }
