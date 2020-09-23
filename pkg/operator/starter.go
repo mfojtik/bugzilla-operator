@@ -50,6 +50,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	recorder := slack.NewRecorder(slackAdminClient, "BugzillaOperator")
 
+	defer func() {
+		recorder.Warningf("Shutdown", ":crossed_fingers: *The bot is shutting down*")
+	}()
+
 	slackerInstance := slacker.NewSlacker(slackClient, slacker.Options{
 		ListenAddress:     "0.0.0.0:3000",
 		VerificationToken: cfg.Credentials.DecodedSlackVerificationToken(),
@@ -260,6 +264,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	}
 
 	<-ctx.Done()
+
 	return nil
 }
 
