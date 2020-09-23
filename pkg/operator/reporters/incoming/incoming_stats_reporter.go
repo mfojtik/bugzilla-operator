@@ -97,6 +97,7 @@ func reportToSlackMessages(reportType string, curReport, prevReport map[string]i
 		prevWeekCount, ok := prevReport[name]
 		prevWeekCountMessage := ""
 		if !ok {
+			slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d", linkToBugList(reportType, name), count))
 			continue
 		}
 		switch {
