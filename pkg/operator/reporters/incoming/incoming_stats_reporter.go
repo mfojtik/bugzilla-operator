@@ -3,6 +3,7 @@ package incoming
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -46,12 +47,38 @@ func ReportStats(ctx context.Context, controllerCtx controller.ControllerContext
 	curWeekComponents, curWeekSeverities := reportsToMap(curWeekReports)
 	prevWeekComponents, prevWeekSeverities := reportsToMap(prevWeekReports)
 
-	slackMessages := []string{"*Last Week - Bug Incoming Rates per Component:* "}
-	slackMessages = append(slackMessages, reportToSlackMessages(curWeekComponents, prevWeekComponents)...)
+	slackMessages := []string{fmt.Sprintf("*Last Week - Bug Incoming Rates per Component (%d this week, %d previous week):* ", countTotal(curWeekComponents), countTotal(prevWeekComponents))}
+	slackMessages = append(slackMessages, reportToSlackMessages("component", curWeekComponents, prevWeekComponents)...)
+
 	slackMessages = append(slackMessages, []string{"\n", "*Last Week - Bug Incoming Rates per Severity:* "}...)
-	slackMessages = append(slackMessages, reportToSlackMessages(curWeekSeverities, prevWeekSeverities)...)
+	slackMessages = append(slackMessages, reportToSlackMessages("severity", curWeekSeverities, prevWeekSeverities)...)
 
 	return strings.Join(slackMessages, "\n"), nil
+}
+
+func linkToBugList(component string, severity string) string {
+	listUrl, _ := url.Parse("https://bugzilla.redhat.com")
+	listUrl.Path += "buglist.cgi"
+	params := url.Values{}
+	params.Add("bug_status", "__open__")
+	if len(component) > 0 {
+		params.Add("component", component)
+	}
+	if len(severity) > 0 {
+		params.Add("bug_severity", severity)
+	}
+	params.Add("product", "OpenShift Container Platform")
+	params.Add("query_format", "advanced")
+	listUrl.RawQuery = params.Encode()
+	return fmt.Sprintf("<%s|%s>", listUrl.String(), component)
+}
+
+func countTotal(report map[string]int) int {
+	total := 0
+	for _, c := range report {
+		total += c
+	}
+	return total
 }
 
 func (r *IncomingStatsReporter) sync(ctx context.Context, controllerContext factory.SyncContext) error {
@@ -63,11 +90,11 @@ func (r *IncomingStatsReporter) sync(ctx context.Context, controllerContext fact
 	return slackClient.MessageAdminChannel(message)
 }
 
-func reportToSlackMessages(curReport, prevReport map[string]int) []string {
+func reportToSlackMessages(reportType string, curReport, prevReport map[string]int) []string {
 	slackMessages := []string{}
 	for name, count := range curReport {
 		prevWeekCount, ok := prevReport[name]
-		prevWeekCountMessage := " (no bugs previous week)"
+		prevWeekCountMessage := ""
 		if ok {
 			switch {
 			case prevWeekCount == count:
@@ -78,7 +105,12 @@ func reportToSlackMessages(curReport, prevReport map[string]int) []string {
 				prevWeekCountMessage = fmt.Sprintf(" (:arrow_up_small: %d)", count-prevWeekCount)
 			}
 		}
-		slackMessages = append(slackMessages, fmt.Sprintf("_%s_: %d %s", name, count, prevWeekCountMessage))
+		switch reportType {
+		case "component":
+			slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d %s", linkToBugList(name, ""), count, prevWeekCountMessage))
+		case "severity":
+			slackMessages = append(slackMessages, fmt.Sprintf("> %s: %d %s", linkToBugList("", name), count, prevWeekCountMessage))
+		}
 	}
 	return slackMessages
 }
