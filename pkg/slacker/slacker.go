@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gorilla/handlers"
 	"github.com/shomali11/proper"
@@ -148,7 +149,7 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 	response := NewResponse(message, client)
 
 	for _, cmd := range s.botCommands {
-		parameters, isMatch := cmd.Match(message.Text)
+		parameters, isMatch := cmd.Match(unescape(message.Text))
 		if !isMatch {
 			continue
 		}
@@ -173,6 +174,15 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 		request := NewRequest(ctx, message, &proper.Properties{})
 		s.defaultMessageHandler(request, response)
 	}
+}
+
+func unescape(input string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return ' '
+		}
+		return r
+	}, input)
 }
 
 func (s *Slacker) appendHelpHandle() {
