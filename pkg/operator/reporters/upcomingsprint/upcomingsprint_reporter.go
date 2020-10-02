@@ -74,11 +74,17 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 
 	bugCounts := []*sortedAssignee{}
 	for _, b := range needUpcomingSprintBugs {
-		for _, n := range bugCounts {
-			if n.assigneeName == b.AssignedTo {
-				n.bugCount++
+		found := false
+		for i := range bugCounts {
+			if bugCounts[i].assigneeName != b.AssignedTo {
 				continue
 			}
+			bugCounts[i].bugCount += 1
+			found = true
+			break
+		}
+		if found {
+			continue
 		}
 		bugCounts = append(bugCounts, &sortedAssignee{
 			assigneeName: b.AssignedTo,
