@@ -3,6 +3,7 @@ package upcomingsprint
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/eparis/bugzilla"
@@ -59,6 +60,11 @@ func makeBugLink(email string) string {
 		"&o4=notsubstring&o5=notsubstring&product=OpenShift%20Container%20Platform&query_format=advanced&v4=UpcomingSprint&v5=LifecycleStale"
 }
 
+type sortedAssignee struct {
+	assigneeName string
+	bugCount     int
+}
+
 func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, error) {
 	needUpcomingSprintBugs, err := getUpcomingSprintList(client, config, components)
 	if err != nil {
@@ -66,14 +72,32 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		return "", err
 	}
 
-	assigneeMap := map[string]int{}
+	bugCounts := []*sortedAssignee{}
 	for _, b := range needUpcomingSprintBugs {
-		assigneeMap[b.AssignedTo]++
+		for _, n := range bugCounts {
+			if n.assigneeName == b.AssignedTo {
+				n.bugCount++
+				continue
+			}
+		}
+		bugCounts = append(bugCounts, &sortedAssignee{
+			assigneeName: b.AssignedTo,
+			bugCount:     1,
+		})
 	}
+	sort.Slice(bugCounts, func(i, j int) bool {
+		return bugCounts[i].bugCount <= bugCounts[j].bugCount
+	})
 
-	result := []string{}
-	for assigneeName, count := range assigneeMap {
-		result = append(result, fmt.Sprintf("%s: <%s|%d>", assigneeName, makeBugLink(assigneeName), count))
+	result := []string{
+		"**Bugs without UpcomingSprint**\n",
+	}
+	for _, c := range bugCounts {
+		warnSign := ":warning: "
+		if c.bugCount < 10 {
+			warnSign = ""
+		}
+		result = append(result, fmt.Sprintf("> %s%s: <%s|%d>", warnSign, c.assigneeName, makeBugLink(c.assigneeName), c.bugCount))
 	}
 
 	return strings.Join(result, "\n"), nil
