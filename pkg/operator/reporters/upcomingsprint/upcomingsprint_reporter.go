@@ -99,14 +99,25 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		"**Bugs without UpcomingSprint**\n",
 	}
 	for _, c := range bugCounts {
-		warnSign := ":warning: "
-		if c.bugCount < 10 {
-			warnSign = ""
-		}
-		result = append(result, fmt.Sprintf("> %s%s: <%s|%d>", warnSign, c.assigneeName, makeBugLink(c.assigneeName), c.bugCount))
+		result = append(result, fmt.Sprintf("> %s%s: <%s|%d>", getEmojiForCount(c.bugCount), c.assigneeName, makeBugLink(c.assigneeName), c.bugCount))
 	}
 
 	return strings.Join(result, "\n"), nil
+}
+
+func getEmojiForCount(count int) string {
+	switch {
+	case count >= 20:
+		return ":finnadie: "
+	case count >= 10 && count < 20:
+		return ":rage4: "
+	case count >= 5 && count < 10:
+		return ":hurtrealbad: "
+	case count > 1 && count < 5:
+		return ":suspect: "
+	default:
+		return ":godmode: "
+	}
 }
 
 func getUpcomingSprintList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
