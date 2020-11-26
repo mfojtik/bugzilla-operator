@@ -107,13 +107,13 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			targetRelease = bug.TargetRelease[0]
 		}
 
-		if blockerPlus := strings.Contains(bug.Whiteboard, "blocker+"); blockerPlus && targetRelease == currentTargetRelease {
+		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
 			r.blockerPlus = append(r.blockerPlus, bugutil.FormatBugMessage(*bug))
 			r.blockerPlusIDs = append(r.blockerPlusIDs, bug.ID)
 			r.seriousIDs["blocker+"] = append(r.seriousIDs["blocker+"], bug.ID)
 		}
 
-		if blockerQuestionmark := strings.Contains(bug.Whiteboard, "blocker?"); blockerQuestionmark && targetRelease == currentTargetRelease {
+		if hasFlag(bug, "blocker", "?") && (targetRelease == currentTargetRelease || targetRelease == "---") {
 			r.blockerQuestionmark = append(r.blockerQuestionmark, bugutil.FormatBugMessage(*bug))
 			r.blockerQuestionmarkIDs = append(r.blockerQuestionmarkIDs, bug.ID)
 			r.seriousIDs["blocker?"] = append(r.seriousIDs["blocker?"], bug.ID)
@@ -131,6 +131,15 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 	}
 
 	return r
+}
+
+func hasFlag(bug *bugzilla.Bug, name, value string) bool {
+	for _, f := range bug.Flags {
+		if f.Name == name && f.Status == value {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -221,6 +230,7 @@ func getBugsQuery(config *config.OperatorConfig, components []string, targetRele
 			"priority",
 			"target_release",
 			"whiteboard",
+			"flags",
 		},
 	}
 }
