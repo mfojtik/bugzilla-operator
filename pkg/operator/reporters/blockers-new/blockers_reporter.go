@@ -68,6 +68,7 @@ type bugSummary struct {
 	staleCount             int
 	priorityCount          map[string]int
 	severityCount          map[string]int
+	currentReleaseCount    int
 }
 
 func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummary {
@@ -122,6 +123,10 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		if (targetRelease == currentTargetRelease && triageState.Has(bug.Status)) || targetRelease == "---" || bug.Priority == "unspecified" || bug.Priority == "" || bug.Severity == "unspecified" || bug.Severity == "" {
 			r.toTriage = append(r.toTriage, bugutil.FormatBugMessage(*bug))
 			r.toTriageIDs = append(r.toTriageIDs, bug.ID)
+		}
+
+		if targetRelease == currentTargetRelease || targetRelease == "---" {
+			r.currentReleaseCount++
 		}
 	}
 
@@ -301,9 +306,9 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 
 	lines := []string{
 		fmt.Sprintf("> All active 4.x and 3.11 Bugs: <%s|%d>", allReleasesQueryURL.String(), activeBugsCount),
+		fmt.Sprintf("> All active %s Bugs: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
-		fmt.Sprintf("> %s Release Blockers Count: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), len(summary.toTriage)),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
 	}
 
