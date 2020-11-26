@@ -255,7 +255,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	)
 
 	report := fmt.Sprintf("\n:bug: *Today 4.x Bug Report:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
-	return report, &summary, nil, nil
+	return report, &summary, bugs, nil
 }
 
 func makeBugzillaLink(hrefText string, ids ...int) string {
