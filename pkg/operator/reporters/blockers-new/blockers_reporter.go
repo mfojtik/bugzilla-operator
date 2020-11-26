@@ -68,6 +68,7 @@ type bugSummary struct {
 	staleCount             int
 	priorityCount          map[string]int
 	severityCount          map[string]int
+	currentReleaseCount    int
 }
 
 func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummary {
@@ -106,13 +107,13 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			targetRelease = bug.TargetRelease[0]
 		}
 
-		if blockerPlus := strings.Contains(bug.Whiteboard, "blocker+"); blockerPlus && targetRelease == currentTargetRelease {
+		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
 			r.blockerPlus = append(r.blockerPlus, bugutil.FormatBugMessage(*bug))
 			r.blockerPlusIDs = append(r.blockerPlusIDs, bug.ID)
 			r.seriousIDs["blocker+"] = append(r.seriousIDs["blocker+"], bug.ID)
 		}
 
-		if blockerQuestionmark := strings.Contains(bug.Whiteboard, "blocker?"); blockerQuestionmark && targetRelease == currentTargetRelease {
+		if hasFlag(bug, "blocker", "?") && (targetRelease == currentTargetRelease || targetRelease == "---") {
 			r.blockerQuestionmark = append(r.blockerQuestionmark, bugutil.FormatBugMessage(*bug))
 			r.blockerQuestionmarkIDs = append(r.blockerQuestionmarkIDs, bug.ID)
 			r.seriousIDs["blocker?"] = append(r.seriousIDs["blocker?"], bug.ID)
@@ -123,9 +124,22 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			r.toTriage = append(r.toTriage, bugutil.FormatBugMessage(*bug))
 			r.toTriageIDs = append(r.toTriageIDs, bug.ID)
 		}
+
+		if targetRelease == currentTargetRelease || targetRelease == "---" {
+			r.currentReleaseCount++
+		}
 	}
 
 	return r
+}
+
+func hasFlag(bug *bugzilla.Bug, name, value string) bool {
+	for _, f := range bug.Flags {
+		if f.Name == name && f.Status == value {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -216,6 +230,7 @@ func getBugsQuery(config *config.OperatorConfig, components []string, targetRele
 			"priority",
 			"target_release",
 			"whiteboard",
+			"flags",
 		},
 	}
 }
@@ -301,9 +316,9 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 
 	lines := []string{
 		fmt.Sprintf("> All active 4.x and 3.11 Bugs: <%s|%d>", allReleasesQueryURL.String(), activeBugsCount),
+		fmt.Sprintf("> All active %s Bugs: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
-		fmt.Sprintf("> %s Release Blockers Count: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), len(summary.toTriage)),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
 	}
 
