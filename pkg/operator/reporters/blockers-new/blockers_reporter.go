@@ -151,9 +151,9 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		return err
 	}
 
-	byID := map[int]*bugzilla.Bug{}
+	byID := map[int]bugzilla.Bug{}
 	for _, b := range bugs {
-		byID[b.ID] = b
+		byID[b.ID] = *b
 	}
 
 	perPerson := func(ids []int, lines []string) (map[string][]int, map[string][]string) {
@@ -171,7 +171,7 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 	}
 
 	perPersonToTriageIDs, perPersonToTriage := perPerson(summary.toTriageIDs, summary.toTriage)
-	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.toTriageIDs, summary.toTriage)
+	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.blockerPlusIDs, summary.blockerPlus)
 	perPersonUrgentIDs, perPersonUrgent := perPerson(summary.urgentIDs, summary.urgent)
 
 	notifyPersons := func(intro, suffix string, perPersonBugs map[string][]string, outro string) {
