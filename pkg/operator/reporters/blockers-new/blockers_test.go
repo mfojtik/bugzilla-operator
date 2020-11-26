@@ -131,7 +131,7 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			urgentIDs:              []int{},
 		},
 		{
-			name:   "bug target release is lower than target, but urgent priority",
+			name:   "bug target release is lower than target, urgent severity, but low priority",
 			target: "4.5.0",
 			bugs: []*bugzilla.Bug{
 				{
@@ -144,10 +144,10 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			blockerIDs:             []int{},
 			blockerQuestionmarkIDs: []int{},
 			triageIDs:              []int{},
-			urgentIDs:              []int{1},
+			urgentIDs:              []int{},
 		},
 		{
-			name:   "bug target release is lower than target, but urgent severity",
+			name:   "bug target release is lower than target, urgent priority, low severity",
 			target: "4.5.0",
 			bugs: []*bugzilla.Bug{
 				{
@@ -160,6 +160,22 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			blockerIDs:             []int{},
 			blockerQuestionmarkIDs: []int{},
 			triageIDs:              []int{},
+			urgentIDs:              []int{1},
+		},
+		{
+			name:   "bug target release is lower than target, urgent severity, unspecified priority",
+			target: "4.5.0",
+			bugs: []*bugzilla.Bug{
+				{
+					ID:            1,
+					TargetRelease: []string{"4.3.0"},
+					Severity:      "urgent",
+					Priority:      "unspecified",
+				},
+			},
+			blockerIDs:             []int{},
+			blockerQuestionmarkIDs: []int{},
+			triageIDs:              []int{1},
 			urgentIDs:              []int{1},
 		},
 		{

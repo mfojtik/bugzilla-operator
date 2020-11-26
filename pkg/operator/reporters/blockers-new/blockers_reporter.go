@@ -92,7 +92,7 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		r.severityCount[bug.Severity]++
 		r.priorityCount[bug.Priority]++
 
-		if bug.Priority == "urgent" || bug.Severity == "urgent" {
+		if bug.Priority == "urgent" || (bug.Severity == "urgent" && bug.Priority == "unspecified") {
 			r.urgent = append(r.urgent, bugutil.FormatBugMessage(*bug))
 			r.urgentIDs = append(r.urgentIDs, bug.ID)
 		}
