@@ -23,6 +23,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/newcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
+	blockersnew "github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers-new"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/incoming"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
@@ -99,6 +100,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		switch name {
 		case "blocker-bugs":
 			return blockers.NewBlockersReporter(ctx, components, when, cfg, recorder)
+		case "blocker-bugs-new":
+			return blockersnew.NewBlockersReporter(ctx, components, when, cfg, recorder)
 		case "incoming-bugs":
 			return incoming.NewIncomingReporter(ctx, when, cfg, recorder)
 		case "incoming-stats":
@@ -122,7 +125,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		}
 	}
 	debugReportControllers := map[string]factory.Controller{}
-	for _, r := range reportNames.List() {
+	for _, r := range append([]string{"blocker-bugs-new"}, reportNames.List()...) {
 		debugReportControllers[r] = newReport(r, controllerContext, cfg.Components.List(), nil)
 	}
 
@@ -188,6 +191,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				"blocker-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					report, _, err := blockers.Report(ctx, client, recorder, &cfg, cfg.Components.List())
+					return report, err
+				},
+				"blocker-bugs-new": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					// TODO: restrict components to one team
+					report, _, _, err := blockersnew.Report(ctx, client, recorder, &cfg, cfg.Components.List())
 					return report, err
 				},
 				"closed-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
