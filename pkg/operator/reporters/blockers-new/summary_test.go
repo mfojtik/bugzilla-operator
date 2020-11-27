@@ -8,7 +8,7 @@ import (
 	"github.com/eparis/bugzilla"
 )
 
-func TestNewBlockersReporter_Triage(t *testing.T) {
+func TestSummary(t *testing.T) {
 	tests := []struct {
 		name                   string
 		bugs                   []*bugzilla.Bug
@@ -257,19 +257,19 @@ func TestNewBlockersReporter_Triage(t *testing.T) {
 			}
 			result := summarizeBugs(test.target, test.bugs...)
 
-			if expected, got := sets.NewInt(test.blockerIDs...), sets.NewInt(result.blockerPlusIDs...); !expected.Equal(got) {
+			if expected, got := sets.NewInt(test.blockerIDs...), sets.NewInt(result.blockerPlus...); !expected.Equal(got) {
 				t.Errorf("expected blocker bugs %v, got %v", expected.List(), got.List())
 			}
 
-			if expected, got := sets.NewInt(test.blockerQuestionmarkIDs...), sets.NewInt(result.blockerQuestionmarkIDs...); !expected.Equal(got) {
+			if expected, got := sets.NewInt(test.blockerQuestionmarkIDs...), sets.NewInt(result.blockerQuestionmark...); !expected.Equal(got) {
 				t.Errorf("expected blocker? bugs %v, got %v", expected.List(), got.List())
 			}
 
-			if expected, got := sets.NewInt(test.triageIDs...), sets.NewInt(result.toTriageIDs...); !expected.Equal(got) {
+			if expected, got := sets.NewInt(test.triageIDs...), sets.NewInt(result.toTriage...); !expected.Equal(got) {
 				t.Errorf("expected to-triage bugs %v, got %v", expected.List(), got.List())
 			}
 
-			if expected, got := sets.NewInt(test.urgentIDs...), sets.NewInt(result.urgentIDs...); !expected.Equal(got) {
+			if expected, got := sets.NewInt(test.urgentIDs...), sets.NewInt(result.urgent...); !expected.Equal(got) {
 				t.Errorf("expected urgent bugs %v, got %v", expected.List(), got.List())
 			}
 		})

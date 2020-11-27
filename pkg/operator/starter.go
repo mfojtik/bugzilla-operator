@@ -95,13 +95,19 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
 
 	var scheduledReports []factory.Controller
-	reportNames := sets.NewString()
-	newReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
+	scheduledReportNames := sets.NewString()
+	newScheduledReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
 		switch name {
 		case "blocker-bugs":
 			return blockers.NewBlockersReporter(ctx, components, when, cfg, recorder)
 		case "blocker-bugs-new":
-			return blockersnew.NewBlockersReporter(ctx, components, when, cfg, recorder)
+			return blockersnew.NewChannelBlockersReporter(ctx, components, when, cfg, recorder)
+		case "user-triage-bugs":
+			return blockersnew.NewToTriageReminder(ctx, components, when, cfg, recorder)
+		case "user-urgent-bugs":
+			return blockersnew.NewUrgentReminder(ctx, components, when, cfg, recorder)
+		case "user-blocker-bugs":
+			return blockersnew.NewBlockerReminder(ctx, components, when, cfg, recorder)
 		case "incoming-bugs":
 			return incoming.NewIncomingReporter(ctx, when, cfg, recorder)
 		case "incoming-stats":
@@ -118,15 +124,15 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
-			if c := newReport(r, reporterContext, ar.Components, ar.When); c != nil {
+			if c := newScheduledReport(r, reporterContext, ar.Components, ar.When); c != nil {
 				scheduledReports = append(scheduledReports, c)
-				reportNames.Insert(r)
+				scheduledReportNames.Insert(r)
 			}
 		}
 	}
 	debugReportControllers := map[string]factory.Controller{}
-	for _, r := range append([]string{"blocker-bugs-new"}, reportNames.List()...) {
-		debugReportControllers[r] = newReport(r, controllerContext, cfg.Components.List(), nil)
+	for _, r := range append([]string{"blocker-bugs-new", "user-triage-bugs", "user-blocker-bugs", "user-urgent-bugs"}, scheduledReportNames.List()...) {
+		debugReportControllers[r] = newScheduledReport(r, controllerContext, cfg.Components.List(), nil)
 	}
 
 	controllerNames := sets.NewString()
@@ -180,11 +186,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Handler:     auth(cfg, runJob(false), "group:admins"),
 	})
 	slackerInstance.Command("admin debug <job>", &slacker.CommandDefinition{
-		Description: fmt.Sprintf("Trigger a job to run in debug mode: %s", strings.Join(append(controllerNames.List(), reportNames.List()...), ", ")),
+		Description: fmt.Sprintf("Trigger a job to run in debug mode: %s", strings.Join(append(controllerNames.List(), scheduledReportNames.List()...), ", ")),
 		Handler:     auth(cfg, runJob(true), "group:admins"),
 	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
-		Description: fmt.Sprintf("Run a report and print result here: %s", strings.Join(reportNames.List(), ", ")),
+		Description: fmt.Sprintf("Run a report and print result here: %s", strings.Join(scheduledReportNames.List(), ", ")),
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			job := req.StringParam("job", "")
 			reports := map[string]func(ctx context.Context, client cache.BugzillaClient) (string, error){
