@@ -8,7 +8,7 @@ import (
 	"github.com/eparis/bugzilla"
 )
 
-func TestNewBlockersReporter_Triage(t *testing.T) {
+func TestSummary(t *testing.T) {
 	tests := []struct {
 		name                   string
 		bugs                   []*bugzilla.Bug
