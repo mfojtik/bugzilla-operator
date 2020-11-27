@@ -18,8 +18,10 @@ import (
 
 type BlockersReporter struct {
 	controller.ControllerContext
-	config     config.OperatorConfig
-	components []string
+	config                                            config.OperatorConfig
+	components                                        []string
+	notifyChannel                                     bool
+	toTriageReminder, blockerReminder, urgentReminder bool
 }
 
 const (
@@ -33,14 +35,44 @@ const (
 	triageOutro = "\n\nPlease make sure all these have the _Severity_, _Priority_ and _Target Release_ set, and move to ASSIGNED, so I can stop bothering you :-)\n\n"
 )
 
-func NewBlockersReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig,
-	recorder events.Recorder) factory.Controller {
+func NewChannelBlockersReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &BlockersReporter{
 		ControllerContext: ctx,
 		config:            operatorConfig,
 		components:        components,
+		notifyChannel:     true,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockersReporter", recorder)
+}
+
+func NewToTriageReminder(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &BlockersReporter{
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
+		toTriageReminder:  true,
+	}
+	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("ToTriageReminder", recorder)
+}
+
+func NewBlockerReminder(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &BlockersReporter{
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
+		blockerReminder:   true,
+	}
+	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("BlockerReminder", recorder)
+}
+
+func NewUrgentReminder(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &BlockersReporter{
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
+		urgentReminder:    true,
+	}
+	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("UrgentReminder", recorder)
 }
 
 func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -87,16 +119,23 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		}
 	}
 
-	notifyPersons(triageIntro, "", perPersonToTriage, triageOutro)
-	notifyPersons(blockerIntro, fmt.Sprintf("for the %s release", c.config.Release.CurrentTargetRelease), perPersonBlockerPlus, blockerOutro)
-	notifyPersons(urgentIntro, "", perPersonUrgent, urgentOutro)
-
-	if err := slackClient.MessageChannel(channelReport); err != nil {
-		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
+	if c.toTriageReminder {
+		notifyPersons(triageIntro, "", perPersonToTriage, triageOutro)
+	}
+	if c.blockerReminder {
+		notifyPersons(blockerIntro, fmt.Sprintf("for the %s release", c.config.Release.CurrentTargetRelease), perPersonBlockerPlus, blockerOutro)
+	}
+	if c.urgentReminder {
+		notifyPersons(urgentIntro, "", perPersonUrgent, urgentOutro)
 	}
 
-	// send debug stats
-	c.sendAdminDebugStats(slackClient, perPersonBlockerPlusIDs, perPersonToTriageIDs, perPersonUrgentIDs)
+	if c.notifyChannel {
+		if err := slackClient.MessageChannel(channelReport); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver stats to channel: %v", err)
+		}
+
+		c.sendAdminDebugStats(slackClient, perPersonBlockerPlusIDs, perPersonToTriageIDs, perPersonUrgentIDs)
+	}
 	return nil
 }
 
