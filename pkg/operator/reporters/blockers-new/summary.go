@@ -18,29 +18,29 @@ var (
 )
 
 type bugSummary struct {
-	seriousIDs             map[string][]int
-	blockerPlusIDs         []int
-	blockerQuestionmarkIDs []int
-	toTriageIDs            []int
-	needUpcomingSprintIDs  []int
-	urgentIDs              []int
-	staleCount             int
-	priorityCount          map[string]int
-	severityCount          map[string]int
-	currentReleaseCount    int
+	serious             map[string][]int
+	blockerPlus         []int
+	blockerQuestionmark []int
+	toTriage            []int
+	needUpcomingSprint  []int
+	urgent              []int
+	staleCount          int
+	priorityCount       map[string]int
+	severityCount       map[string]int
+	currentReleaseCount int
 }
 
 func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummary {
 	r := bugSummary{
 		priorityCount: map[string]int{},
 		severityCount: map[string]int{},
-		seriousIDs:    map[string][]int{},
+		serious:       map[string][]int{},
 	}
 	for _, bug := range bugs {
 		keywords := sets.NewString(bug.Keywords...)
 		for _, keyword := range seriousKeywords {
 			if keywords.Has(keyword) {
-				r.seriousIDs[keyword] = append(r.seriousIDs[keyword], bug.ID)
+				r.serious[keyword] = append(r.serious[keyword], bug.ID)
 			}
 		}
 
@@ -52,11 +52,11 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		r.priorityCount[bug.Priority]++
 
 		if bug.Priority == "urgent" || (bug.Severity == "urgent" && bug.Priority == "unspecified") {
-			r.urgentIDs = append(r.urgentIDs, bug.ID)
+			r.urgent = append(r.urgent, bug.ID)
 		}
 
 		if !keywords.Has("UpcomingSprint") {
-			r.needUpcomingSprintIDs = append(r.needUpcomingSprintIDs, bug.ID)
+			r.needUpcomingSprint = append(r.needUpcomingSprint, bug.ID)
 		}
 
 		targetRelease := "---"
@@ -65,18 +65,18 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		}
 
 		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
-			r.blockerPlusIDs = append(r.blockerPlusIDs, bug.ID)
-			r.seriousIDs["blocker+"] = append(r.seriousIDs["blocker+"], bug.ID)
+			r.blockerPlus = append(r.blockerPlus, bug.ID)
+			r.serious["blocker+"] = append(r.serious["blocker+"], bug.ID)
 		}
 
 		if hasFlag(bug, "blocker", "?") && (targetRelease == currentTargetRelease || targetRelease == "---") {
-			r.blockerQuestionmarkIDs = append(r.blockerQuestionmarkIDs, bug.ID)
-			r.seriousIDs["blocker?"] = append(r.seriousIDs["blocker?"], bug.ID)
+			r.blockerQuestionmark = append(r.blockerQuestionmark, bug.ID)
+			r.serious["blocker?"] = append(r.serious["blocker?"], bug.ID)
 		}
 
 		triageState := sets.NewString("NEW", "")
 		if (targetRelease == currentTargetRelease && triageState.Has(bug.Status)) || targetRelease == "---" || bug.Priority == "unspecified" || bug.Priority == "" || bug.Severity == "unspecified" || bug.Severity == "" {
-			r.toTriageIDs = append(r.toTriageIDs, bug.ID)
+			r.toTriage = append(r.toTriage, bug.ID)
 		}
 
 		if targetRelease == currentTargetRelease || targetRelease == "---" {

@@ -71,9 +71,9 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		return perPersonIDs, perPersonLines
 	}
 
-	perPersonToTriageIDs, perPersonToTriage := perPerson(summary.toTriageIDs)
-	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.blockerPlusIDs)
-	perPersonUrgentIDs, perPersonUrgent := perPerson(summary.urgentIDs)
+	perPersonToTriageIDs, perPersonToTriage := perPerson(summary.toTriage)
+	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.blockerPlus)
+	perPersonUrgentIDs, perPersonUrgent := perPerson(summary.urgent)
 
 	notifyPersons := func(intro, suffix string, perPersonBugs map[string][]string, outro string) {
 		for person, lines := range perPersonBugs {
@@ -159,21 +159,21 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 	return report, &summary, bugs, nil
 }
 
-func (c *BlockersReporter) sendAdminDebugStats(slackClient slack.ChannelClient, perPersonBlockersIDs, perPersonToTriageIDs, perPersonUrgentIDs map[string][]int) {
+func (c *BlockersReporter) sendAdminDebugStats(slackClient slack.ChannelClient, perPersonBlockers, perPersonToTriage, perPersonUrgent map[string][]int) {
 	var messages []string
-	for person, b := range perPersonBlockersIDs {
-		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d blocker+ bugs", makeBugzillaLink(person, perPersonBlockersIDs[person]...), len(b)))
+	for person, bs := range perPersonBlockers {
+		if len(bs) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d blocker+ bugs", makeBugzillaLink(person, perPersonBlockers[person]...), len(bs)))
 		}
 	}
-	for person, b := range perPersonToTriageIDs {
-		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d bugs that need triage", makeBugzillaLink(person, perPersonToTriageIDs[person]...), len(b)))
+	for person, bs := range perPersonToTriage {
+		if len(bs) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d bugs that need triage", makeBugzillaLink(person, perPersonToTriage[person]...), len(bs)))
 		}
 	}
-	for person, b := range perPersonUrgentIDs {
-		if len(b) > 0 {
-			messages = append(messages, fmt.Sprintf("> %s: %d urgent bugs", makeBugzillaLink(person, perPersonUrgentIDs[person]...), len(b)))
+	for person, bs := range perPersonUrgent {
+		if len(bs) > 0 {
+			messages = append(messages, fmt.Sprintf("> %s: %d urgent bugs", makeBugzillaLink(person, perPersonUrgent[person]...), len(bs)))
 		}
 	}
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
@@ -211,7 +211,7 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
 	}
 
-	for keyword, ids := range summary.seriousIDs {
+	for keyword, ids := range summary.serious {
 		if len(ids) > 0 {
 			keywordURL := makeBugzillaLink(fmt.Sprintf("%d", len(ids)), ids...)
 			lines = append(lines, fmt.Sprintf("> Bugs with _%s_: %s", keyword, keywordURL))
