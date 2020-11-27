@@ -7,8 +7,6 @@ import (
 
 	"github.com/eparis/bugzilla"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 )
 
 var (
@@ -21,16 +19,11 @@ var (
 
 type bugSummary struct {
 	seriousIDs             map[string][]int
-	blockerPlus            []string
 	blockerPlusIDs         []int
-	blockerQuestionmark    []string
 	blockerQuestionmarkIDs []int
-	toTriage               []string
 	toTriageIDs            []int
-	needUpcomingSprint     []string
 	needUpcomingSprintIDs  []int
 	urgentIDs              []int
-	urgent                 []string
 	staleCount             int
 	priorityCount          map[string]int
 	severityCount          map[string]int
@@ -59,12 +52,10 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		r.priorityCount[bug.Priority]++
 
 		if bug.Priority == "urgent" || (bug.Severity == "urgent" && bug.Priority == "unspecified") {
-			r.urgent = append(r.urgent, bugutil.FormatBugMessage(*bug))
 			r.urgentIDs = append(r.urgentIDs, bug.ID)
 		}
 
 		if !keywords.Has("UpcomingSprint") {
-			r.needUpcomingSprint = append(r.needUpcomingSprint, bugutil.FormatBugMessage(*bug))
 			r.needUpcomingSprintIDs = append(r.needUpcomingSprintIDs, bug.ID)
 		}
 
@@ -74,20 +65,17 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		}
 
 		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
-			r.blockerPlus = append(r.blockerPlus, bugutil.FormatBugMessage(*bug))
 			r.blockerPlusIDs = append(r.blockerPlusIDs, bug.ID)
 			r.seriousIDs["blocker+"] = append(r.seriousIDs["blocker+"], bug.ID)
 		}
 
 		if hasFlag(bug, "blocker", "?") && (targetRelease == currentTargetRelease || targetRelease == "---") {
-			r.blockerQuestionmark = append(r.blockerQuestionmark, bugutil.FormatBugMessage(*bug))
 			r.blockerQuestionmarkIDs = append(r.blockerQuestionmarkIDs, bug.ID)
 			r.seriousIDs["blocker?"] = append(r.seriousIDs["blocker?"], bug.ID)
 		}
 
 		triageState := sets.NewString("NEW", "")
 		if (targetRelease == currentTargetRelease && triageState.Has(bug.Status)) || targetRelease == "---" || bug.Priority == "unspecified" || bug.Priority == "" || bug.Severity == "unspecified" || bug.Severity == "" {
-			r.toTriage = append(r.toTriage, bugutil.FormatBugMessage(*bug))
 			r.toTriageIDs = append(r.toTriageIDs, bug.ID)
 		}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/eparis/bugzilla"
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
@@ -56,23 +57,23 @@ func (c *BlockersReporter) sync(ctx context.Context, syncCtx factory.SyncContext
 		byID[b.ID] = *b
 	}
 
-	perPerson := func(ids []int, lines []string) (map[string][]int, map[string][]string) {
+	perPerson := func(ids []int) (map[string][]int, map[string][]string) {
 		perPersonLines := map[string][]string{}
 		perPersonIDs := map[string][]int{}
-		for i, id := range ids {
+		for _, id := range ids {
 			b, ok := byID[id]
 			if !ok {
 				continue
 			}
-			perPersonLines[b.AssignedTo] = append(perPersonLines[b.AssignedTo], lines[i])
+			perPersonLines[b.AssignedTo] = append(perPersonLines[b.AssignedTo], bugutil.FormatBugMessage(b))
 			perPersonIDs[b.AssignedTo] = append(perPersonIDs[b.AssignedTo], id)
 		}
 		return perPersonIDs, perPersonLines
 	}
 
-	perPersonToTriageIDs, perPersonToTriage := perPerson(summary.toTriageIDs, summary.toTriage)
-	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.blockerPlusIDs, summary.blockerPlus)
-	perPersonUrgentIDs, perPersonUrgent := perPerson(summary.urgentIDs, summary.urgent)
+	perPersonToTriageIDs, perPersonToTriage := perPerson(summary.toTriageIDs)
+	perPersonBlockerPlusIDs, perPersonBlockerPlus := perPerson(summary.blockerPlusIDs)
+	perPersonUrgentIDs, perPersonUrgent := perPerson(summary.urgentIDs)
 
 	notifyPersons := func(intro, suffix string, perPersonBugs map[string][]string, outro string) {
 		for person, lines := range perPersonBugs {
