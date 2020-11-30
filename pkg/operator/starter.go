@@ -93,8 +93,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	// TODO: enable by default
 	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
 
-	var scheduledReports []factory.Controller
-	scheduledReportNames := sets.NewString()
 	newScheduledReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
 		switch name {
 		case "blocker-bugs":
@@ -117,19 +115,23 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			return nil
 		}
 	}
+	var scheduledReports []factory.Controller
+	reportComponents := map[string][]string{}
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, cmClient)
 		for _, r := range ar.Reports {
 			if c := newScheduledReport(r, reporterContext, ar.Components, ar.When); c != nil {
 				scheduledReports = append(scheduledReports, c)
-				scheduledReportNames.Insert(r)
+				reportComponents[r] = append(reportComponents[r], ar.Components...)
 			}
 		}
 	}
-	debugReportControllers := map[string]factory.Controller{}
-	for _, r := range append([]string{}, scheduledReportNames.List()...) {
-		debugReportControllers[r] = newScheduledReport(r, controllerContext, cfg.Components.List(), nil)
+	triggerableReports := map[string]factory.Controller{}
+	scheduledReportNames := sets.NewString()
+	for r, comps := range reportComponents {
+		scheduledReportNames.Insert(r)
+		triggerableReports[r] = newScheduledReport(r, controllerContext, sets.NewString(comps...).List(), nil)
 	}
 
 	controllerNames := sets.NewString()
@@ -144,11 +146,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 			c, ok := controllers[job]
 			if !ok {
-				if !debug {
-					w.Reply(fmt.Sprintf("Unknown job %q", job))
-					return
-				}
-				if c, ok = debugReportControllers[job]; !ok {
+				c, ok = triggerableReports[job]
+				if !ok {
 					w.Reply(fmt.Sprintf("Unknown job %q", job))
 					return
 				}
@@ -166,10 +165,12 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			if err != nil {
 				klog.Error(err)
 			}
+
 			if err := c.Sync(ctx, factory.NewSyncContext(job, recorder)); err != nil {
 				recorder.Warningf("ReportError", "Job reported error: %v", err)
 				return
 			}
+
 			_, _, _, err = w.Client().SendMessage(req.Event().Channel,
 				slackgo.MsgOptionPostEphemeral(req.Event().User),
 				slackgo.MsgOptionText(fmt.Sprintf("Finished job %q after %v", job, time.Since(startTime)), false))
@@ -179,7 +180,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		}
 	}
 	slackerInstance.Command("admin trigger <job>", &slacker.CommandDefinition{
-		Description: fmt.Sprintf("Trigger a job to run: %s", strings.Join(controllerNames.List(), ", ")),
+		Description: fmt.Sprintf("Trigger a job to run: %s", strings.Join(append(controllerNames.List(), scheduledReportNames.List()...), ", ")),
 		Handler:     auth(cfg, runJob(false), "group:admins"),
 	})
 	slackerInstance.Command("admin debug <job>", &slacker.CommandDefinition{
@@ -251,7 +252,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	for _, c := range controllers {
 		all = append(all, c)
 	}
-	for _, c := range append(all, scheduledReports...) {
+	for _, c := range scheduledReports {
+		all = append(all, c)
+	}
+	for _, c := range all {
 		seen = append(seen, c.Name())
 		if disabled.Has(c.Name()) {
 			continue
