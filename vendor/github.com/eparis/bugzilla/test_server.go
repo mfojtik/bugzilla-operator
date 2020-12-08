@@ -150,6 +150,10 @@ func (tc testClient) GetExternalBugPRsOnBug(_ int) ([]ExternalBug, error) {
 	return []ExternalBug{}, nil
 }
 
+func (tc testClient) GetExternalBugs(_ int) ([]ExternalBug, error) {
+	return []ExternalBug{}, nil
+}
+
 func (tc testClient) GetBug(id int) (*Bug, error) {
 	srv := tc.getTestServer(tc.path)
 	defer srv.Close()

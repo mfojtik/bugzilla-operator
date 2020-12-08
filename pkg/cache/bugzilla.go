@@ -18,6 +18,7 @@ type BugzillaClient interface {
 	GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, error)
 	GetCachedBugComments(id int, lastChangedTime string) ([]bugzilla.Comment, error)
 	GetCachedBugHistory(id int, lastChangedTime string) ([]bugzilla.History, error)
+	GetCachedExternalBugs(id int, lastChangedTime string) ([]bugzilla.ExternalBug, error)
 }
 
 func NewCachedBugzillaClient(client bugzilla.Client) BugzillaClient {
@@ -51,6 +52,38 @@ func (c *cachedClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.B
 		}
 	}
 	return c.GetBug(id)
+}
+
+func (c *cachedClient) GetCachedExternalBugs(id int, lastChangedTime string) ([]bugzilla.ExternalBug, error) {
+	b, err := c.GetCachedBug(id, lastChangedTime)
+	if err != nil {
+		return nil, err
+	}
+	bs, err := Get(fmt.Sprintf("external-bugs-%d", id), b.LastChangeTime)
+	if err != nil {
+		klog.Warningf("failed to get cached external bugs %d: %v", id, err)
+	}
+	if bs != nil {
+		ret := bugzilla.Bug{}
+		if err := json.Unmarshal(bs, &ret); err != nil {
+			klog.Warningf("failed to decode cached external bugs %d: %v", id, err)
+		} else {
+			return ret.ExternalBugs, nil
+		}
+	}
+
+	ret, err := c.GetExternalBugs(id)
+	if err != nil {
+		return nil, err
+	}
+
+	bs, err = json.Marshal(bugzilla.Bug{ExternalBugs: ret})
+	if err != nil {
+		return nil, err
+	}
+	Set(fmt.Sprintf("external-bugs-%d", b.ID), b.LastChangeTime, bs)
+
+	return ret, nil
 }
 
 func (c *cachedClient) GetCachedBugComments(id int, lastChangedTime string) ([]bugzilla.Comment, error) {

@@ -42,6 +42,7 @@ type Client interface {
 	GetBugComments(id int) ([]Comment, error)
 	GetBugHistory(id int) ([]History, error)
 	Search(query Query) ([]*Bug, error)
+	GetExternalBugs(id int) ([]ExternalBug, error)
 	GetExternalBugPRsOnBug(id int) ([]ExternalBug, error)
 	UpdateBug(id int, update BugUpdate) error
 	AddPullRequestAsExternalBug(id int, org, repo string, num int) (bool, error)
@@ -183,6 +184,17 @@ func (c *client) GetBugHistory(id int) ([]History, error) {
 // and returns any that reference a Pull Request in GitHub
 // https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#get-bug
 func (c *client) GetExternalBugPRsOnBug(id int) ([]ExternalBug, error) {
+	ebs, err := c.GetExternalBugs(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return filterPRs(ebs)
+}
+
+// GetExternalBugPRsOnBug retrieves external bugs on a Bug from the server
+// https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#get-bug
+func (c *client) GetExternalBugs(id int) ([]ExternalBug, error) {
 	logger := c.logger.WithFields(logrus.Fields{methodField: "GetExternalBugPRsOnBug", "id": id})
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/rest/bug/%d", c.endpoint, id), nil)
 	if err != nil {
@@ -211,6 +223,14 @@ func (c *client) GetExternalBugPRsOnBug(id int) ([]ExternalBug, error) {
 		if bug.BugzillaBugID != id {
 			continue
 		}
+		prs = append(prs, bug)
+	}
+	return prs, nil
+}
+
+func filterPRs(ebs []ExternalBug) ([]ExternalBug, error) {
+	var prs []ExternalBug
+	for _, bug := range ebs {
 		if bug.Type.URL != "https://github.com/" {
 			// TODO: skuznets: figure out how to honor the endpoints given to the GitHub client to support enterprise here
 			continue

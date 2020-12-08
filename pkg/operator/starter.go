@@ -24,6 +24,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/newcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/escalation"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/incoming"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
@@ -111,6 +112,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			return closed.NewClosedReporter(ctx, components, when, cfg, recorder)
 		case "upcoming-sprint":
 			return upcomingsprint.NewUpcomingSprintReporter(controllerContext, components, when, cfg, recorder)
+		case "escalations":
+			return escalation.NewEscalationReporter(ctx, components, when, cfg, recorder)
 		default:
 			return nil
 		}
@@ -214,6 +217,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					return upcomingsprint.Report(ctx, client, recorder, &cfg, cfg.Components.List())
+				},
+				"ecsalations": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					// TODO: restrict components to one team
+					return escalation.Report(ctx, client, nil, recorder, &cfg, cfg.Components.List())
 				},
 
 				// don't forget to also add new reports above in the trigger command

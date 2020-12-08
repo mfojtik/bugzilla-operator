@@ -351,6 +351,14 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/sttts/bugzilla v0.0.0-20200820131213-4e7f92a5f2e0 h1:6a5OIprgaAL1SmgHcJMENZ8PLsiqkVnb4J3Exur2ewc=
 github.com/sttts/bugzilla v0.0.0-20200820131213-4e7f92a5f2e0/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
+github.com/sttts/bugzilla v0.0.0-20201127120749-fd2da6089845 h1:IZf9NCWTtCGM9mn+difVyhfNUnouwYKU7tyiZDd3G1A=
+github.com/sttts/bugzilla v0.0.0-20201127120749-fd2da6089845/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
+github.com/sttts/bugzilla v0.0.0-20201127140536-5a9ae91daef7 h1:GTwdiVenXA37QEcjnsIwCNNlnXQVgJfBm/MC2TMHqWg=
+github.com/sttts/bugzilla v0.0.0-20201127140536-5a9ae91daef7/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
+github.com/sttts/bugzilla v0.0.0-20201127141113-7779a9ac1b19 h1:OAOGN5JVSpBFfastagG6fBl6/1VEiltg5OeuJnuTz1o=
+github.com/sttts/bugzilla v0.0.0-20201127141113-7779a9ac1b19/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
+github.com/sttts/bugzilla v0.0.0-20201207155830-bdebb1b9b262 h1:sjyu9OvZhqsL5S2C8mDk/0IPZ7jWNV8BBWKmTtE/Jbw=
+github.com/sttts/bugzilla v0.0.0-20201207155830-bdebb1b9b262/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

@@ -36,6 +36,9 @@ func (q *Query) Values() *url.Values {
 	for _, val := range q.Status {
 		values.Add("bug_status", val)
 	}
+	for _, val := range q.Priority {
+		values.Add("priority", val)
+	}
 	for _, val := range q.Severity {
 		values.Add("bug_severity", val)
 	}

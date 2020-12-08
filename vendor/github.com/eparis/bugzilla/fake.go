@@ -78,10 +78,23 @@ func (c *Fake) Search(query Query) ([]*Bug, error) {
 	return bugs, nil
 }
 
-// GetBug retrieves the external bugs for the Bugzilla bug,
+// GetExternalBugPRsOnBug retrieves the external bugs for the Bugzilla bug,
 // if registered, or an error, if set, or responds with an
-// error that matches IsNotFound
+// error that matches IsNotFound. It filters them by Github PRs.
 func (c *Fake) GetExternalBugPRsOnBug(id int) ([]ExternalBug, error) {
+	if c.BugErrors.Has(id) {
+		return nil, errors.New("injected error adding external bug to bug")
+	}
+	if _, exists := c.Bugs[id]; exists {
+		return c.ExternalBugs[id], nil
+	}
+	return nil, &requestError{statusCode: http.StatusNotFound, message: "bug not registered in the fake"}
+}
+
+// GetExternalBugs retrieves the external bugs for the Bugzilla bug,
+// if registered, or an error, if set, or responds with an
+// error that matches IsNotFound.
+func (c *Fake) GetExternalBugs(id int) ([]ExternalBug, error) {
 	if c.BugErrors.Has(id) {
 		return nil, errors.New("injected error adding external bug to bug")
 	}
