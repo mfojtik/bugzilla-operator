@@ -105,9 +105,9 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		maxEscalations := max(1, int(float64(len(team))*0.2))
 
 		if len(bugs) > maxEscalations {
-			lines = append(lines, fmt.Sprintf(":red-siren: %s with %d bugs, above the quota of %d", lead, len(bugs), maxEscalations))
+			lines = append(lines, fmt.Sprintf(":red-siren: %s's team with %d bugs, above the quota of %d", lead, len(bugs), maxEscalations))
 		} else {
-			lines = append(lines, fmt.Sprintf("%s with %d bugs", lead, len(bugs)))
+			lines = append(lines, fmt.Sprintf("%s's team with %d bug", lead, len(bugs)))
 		}
 
 		for _, b := range bugs {
