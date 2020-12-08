@@ -29,6 +29,10 @@ func (lrc *loggingReadOnlyClient) GetCachedBugHistory(id int, lastChangedTime st
 	return lrc.delegate.GetCachedBugHistory(id, lastChangedTime)
 }
 
+func (lrc *loggingReadOnlyClient) GetCachedExternalBugs(id int, lastChangedTime string) ([]bugzilla.ExternalBug, error) {
+	return lrc.delegate.GetCachedExternalBugs(id, lastChangedTime)
+}
+
 func (lrc *loggingReadOnlyClient) Endpoint() string {
 	return lrc.delegate.Endpoint()
 }
@@ -47,6 +51,10 @@ func (lrc *loggingReadOnlyClient) GetBugHistory(id int) ([]bugzilla.History, err
 
 func (lrc *loggingReadOnlyClient) Search(query bugzilla.Query) ([]*bugzilla.Bug, error) {
 	return lrc.delegate.Search(query)
+}
+
+func (lrc *loggingReadOnlyClient) GetExternalBugs(id int) ([]bugzilla.ExternalBug, error) {
+	return lrc.delegate.GetExternalBugs(id)
 }
 
 func (lrc *loggingReadOnlyClient) GetExternalBugPRsOnBug(id int) ([]bugzilla.ExternalBug, error) {
