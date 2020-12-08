@@ -89,7 +89,11 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 	}
 
-	lines := []string{}
+	if len(assigneeCounts) == 0 {
+		return "", nil
+	}
+
+	lines := []string{"Escalation report:"}
 	for lead, bugs := range leadsBugs {
 		roots := sets.NewString()
 		for _, comp := range cfg.Components {
@@ -103,11 +107,11 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		if len(bugs) > maxEscalations {
 			lines = append(lines, fmt.Sprintf(":red-siren: %s with %d bugs, above the quota of %d", lead, len(bugs), maxEscalations))
 		} else {
-			lines = append(lines, fmt.Sprintf(":warning: %s with %d bugs, above the quota of %d", lead, len(bugs), maxEscalations))
+			lines = append(lines, fmt.Sprintf("%s with %d bugs", lead, len(bugs)))
 		}
 
 		for _, b := range bugs {
-			lines = append(lines, fmt.Sprintf("> %s %s – %s", bugutil.GetBugURL(*b), b.Status, b.Summary))
+			lines = append(lines, fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.AssignedTo, b.Status, b.Summary))
 		}
 	}
 
@@ -115,17 +119,24 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		slack.MessageAdminChannel(fmt.Sprintf("Missing components in config: %s", strings.Join(missingComponents.List(), ", ")))
 	}
 
+	first := true
 	for assignee, bugs := range assigneeCounts {
+		if len(bugs) == 1 {
+			continue
+		}
+
+		if first {
+			lines = append(lines, "")
+			lines = append(lines, "Assignees with more than one escalation:")
+			first = false
+		}
+
 		links := []string{}
 		for _, b := range bugs {
 			links = append(links, bugutil.GetBugURL(*b))
 		}
 
-		if len(bugs) == 1 {
-			lines = append(lines, fmt.Sprintf("> %s: %s", assignee, strings.Join(links, " ")))
-		} else {
-			lines = append(lines, fmt.Sprintf(":red-siren: %s has more than 1: %s", assignee, strings.Join(links, " ")))
-		}
+		lines = append(lines, fmt.Sprintf("> :red-siren: %s: %s", assignee, strings.Join(links, " ")))
 	}
 
 	return strings.Join(lines, "\n"), nil
@@ -152,6 +163,7 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"priority",
 			"external_bugs",
 			"component",
+			"summary",
 		},
 	})
 }
