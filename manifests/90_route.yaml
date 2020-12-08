@@ -2,16 +2,14 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   namespace: bugzilla-operator
-  name: bugzilla-operator
+  name: webhook
 spec:
-  host: bugzilla-operator.svc.ci.openshift.org
   port:
     targetPort: http
   tls:
     termination: edge
   to:
     kind: Service
-    namespace: bugzilla-operator
     name: bugzilla-operator
     weight: 100
   wildcardPolicy: None

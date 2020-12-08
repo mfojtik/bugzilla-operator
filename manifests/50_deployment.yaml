@@ -5,7 +5,6 @@ metadata:
   name: bugzilla-operator
   annotations:
     image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"bugzilla-operator:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"operator\")].image"}]'
-    c
   labels:
     app: bugzilla-operator
 spec:
@@ -21,32 +20,36 @@ spec:
       labels:
         app: bugzilla-operator
     spec:
-      volumes:
-        - name: config
-          configMap:
-            name: operator-config
-            optional: true
-        - name: home
-          persistentVolumeClaim:
-            claimName: cache
       containers:
-        - name: operator
-          terminationMessagePolicy: FallbackToLogsOnError
-          image: quay.io/mfojtik/bugzilla-operator:dev
-          imagePullPolicy: IfNotPresent
-          command: ["bugzilla-operator", "run", "--config", "/var/run/operator-config/config.yaml"]
-          resources:
-            requests:
-              memory: 50Mi
-              cpu: 10m
-          env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-                name: podinfo
-          volumeMounts:
-            - mountPath: /var/run/operator-config
-              name: config
-            - mountPath: "/cache"
-              name: cache
+      - command:
+        - bugzilla-operator
+        - run
+        - -v=9
+        - --config
+        - /var/run/operator-config/config.yaml
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: docker-registry.default.svc:5000/bugzilla-operator/bugzilla-operator@sha256:e392b7b67f6664429b90f7886af5d6484a5157189032538ebba49d05a5317b85
+        name: operator
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        volumeMounts:
+        - mountPath: /var/run/operator-config
+          name: config
+        - mountPath: /cache
+          name: volume-3yrc5
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: operator-config
+          optional: true
+        name: config
+      - name: volume-3yrc5
+        persistentVolumeClaim:
+          claimName: cache

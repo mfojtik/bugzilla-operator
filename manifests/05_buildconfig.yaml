@@ -3,6 +3,7 @@ kind: BuildConfig
 metadata:
   labels:
   name: bugzilla-operator
+  namespace: bugzilla-operator
 spec:
   output:
     to:
@@ -19,13 +20,15 @@ spec:
       from:
         kind: ImageStreamTag
         name: fedora:32
-        namespace: sttts
+        namespace: bugzilla-operator
     type: Docker
+  successfulBuildsHistoryLimit: 5
   triggers:
-    - github:
-        secretReference:
-          name: "github-trigger"
-      type: GitHub
-    - type: ConfigChange
-    - imageChange: {}
-      type: ImageChange
+  - imageChange:
+      lastTriggeredImageID: fedora@sha256:5a15bd290d6ab3d9666c2ce96cd6ccbde5c11e66d504578c955548369fbdfeb5
+    type: ImageChange
+  - type: ConfigChange
+  - github:
+      secretReference:
+        name: github-webhook
+    type: GitHub
