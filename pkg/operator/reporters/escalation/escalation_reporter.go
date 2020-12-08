@@ -61,11 +61,12 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		return "", err
 	}
 
-	assigneeCounts := map[string][]*bugzilla.Bug{}
+	assigned := map[string][]*bugzilla.Bug{}
+	silenced := []*bugzilla.Bug{}
 	leadsBugs := map[string][]*bugzilla.Bug{}
 	missingComponents := sets.NewString()
 	for _, b := range urgentSeverityBugs {
-		escalated := b.Escalation == "Yes"
+		escalationFlag := b.Escalation == "Yes"
 		customerCases := false
 		for _, eb := range b.ExternalBugs {
 			if eb.Type.Type == "SFDC" {
@@ -73,8 +74,9 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 				break
 			}
 		}
-		if escalated || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified") {
-			assigneeCounts[b.AssignedTo] = append(assigneeCounts[b.AssignedTo], b)
+
+		if escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified") {
+			assigned[b.AssignedTo] = append(assigned[b.AssignedTo], b)
 
 			if len(b.Component) > 0 {
 				comp, ok := cfg.Components[b.Component[0]]
@@ -86,14 +88,21 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 					leadsBugs[comp.Lead] = append(leadsBugs[comp.Lead], b)
 				}
 			}
+		} else if b.Severity == "urgent" && b.Priority != "unspecified" {
+			silenced = append(silenced, b)
 		}
 	}
 
-	if len(assigneeCounts) == 0 {
+	if len(missingComponents) > 0 && slack != nil {
+		slack.MessageAdminChannel(fmt.Sprintf("Missing components in config: %s", strings.Join(missingComponents.List(), ", ")))
+	}
+
+	if len(leadsBugs) == 0 && len(silenced) == 0 {
 		return "", nil
 	}
 
-	lines := []string{"Escalation report:"}
+	lines := []string{"Escalation report:", ""}
+
 	for lead, bugs := range leadsBugs {
 		roots := sets.NewString()
 		for _, comp := range cfg.Components {
@@ -115,12 +124,8 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 	}
 
-	if len(missingComponents) > 0 && slack != nil {
-		slack.MessageAdminChannel(fmt.Sprintf("Missing components in config: %s", strings.Join(missingComponents.List(), ", ")))
-	}
-
 	first := true
-	for assignee, bugs := range assigneeCounts {
+	for assignee, bugs := range assigned {
 		if len(bugs) == 1 {
 			continue
 		}
@@ -137,6 +142,14 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		lines = append(lines, fmt.Sprintf("> :red-siren: %s: %s", assignee, strings.Join(links, " ")))
+	}
+
+	if len(silenced) > 0 {
+		links := []string{}
+		for _, b := range silenced {
+			links = append(links, bugutil.GetBugURL(*b))
+		}
+		lines = append(lines, "", fmt.Sprintf("%d silenced bugs :see_no_evil: : %s", len(links), strings.Join(links, " ")))
 	}
 
 	return strings.Join(lines, "\n"), nil
