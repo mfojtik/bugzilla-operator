@@ -218,7 +218,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					// TODO: restrict components to one team
 					return upcomingsprint.Report(ctx, client, recorder, &cfg, cfg.Components.List())
 				},
-				"ecsalations": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+				"escalations": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
 					return escalation.Report(ctx, client, nil, recorder, &cfg, cfg.Components.List())
 				},
