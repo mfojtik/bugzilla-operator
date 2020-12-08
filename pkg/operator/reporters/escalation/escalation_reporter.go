@@ -88,7 +88,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 					leadsBugs[comp.Lead] = append(leadsBugs[comp.Lead], b)
 				}
 			}
-		} else if b.Severity == "urgent" && b.Priority != "unspecified" {
+		} else if customerCases && b.Severity == "urgent" && b.Priority != "urgent" {
 			silenced = append(silenced, b)
 		}
 	}
