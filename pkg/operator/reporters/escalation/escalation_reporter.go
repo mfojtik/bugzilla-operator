@@ -111,7 +111,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		for _, b := range bugs {
-			lines = append(lines, fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.AssignedTo, b.Status, b.Summary))
+			lines = append(lines, fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary))
 		}
 	}
 
