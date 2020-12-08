@@ -73,7 +73,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 				break
 			}
 		}
-		if escalated || (customerCases && b.Priority == "urgent") {
+		if escalated || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified") {
 			assigneeCounts[b.AssignedTo] = append(assigneeCounts[b.AssignedTo], b)
 
 			if len(b.Component) > 0 {
@@ -93,7 +93,9 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 	for lead, bugs := range leadsBugs {
 		roots := sets.NewString()
 		for _, comp := range cfg.Components {
-			roots.Insert(comp.Developers...)
+			if comp.Lead == lead {
+				roots.Insert(comp.Developers...)
+			}
 		}
 		team := config.ExpandGroups(cfg.Groups, roots.List()...)
 		maxEscalations := max(1, int(float64(len(team))*0.2))
@@ -114,15 +116,16 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 	}
 
 	for assignee, bugs := range assigneeCounts {
-		if len(bugs) == 1 {
-			continue
-		}
-
 		links := []string{}
 		for _, b := range bugs {
 			links = append(links, bugutil.GetBugURL(*b))
 		}
-		lines = append(lines, fmt.Sprintf(":red-siren: %s has more than 1: %s", assignee, strings.Join(links, " ")))
+
+		if len(bugs) == 1 {
+			lines = append(lines, fmt.Sprintf("> %s: %s", assignee, strings.Join(links, " ")))
+		} else {
+			lines = append(lines, fmt.Sprintf(":red-siren: %s has more than 1: %s", assignee, strings.Join(links, " ")))
+		}
 	}
 
 	return strings.Join(lines, "\n"), nil
@@ -141,18 +144,14 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
 		Component:      components,
-		Severity:       []string{"urgent"},
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
-			"keywords",
 			"status",
-			"resolution",
 			"severity",
 			"priority",
-			"target_release",
-			"whiteboard",
 			"external_bugs",
+			"component",
 		},
 	})
 }
