@@ -254,6 +254,8 @@ type ExternalBug struct {
 	ExternalDescription string `json:"ext_description"`
 	// ExternalPriority is the priority in the external bug system
 	ExternalPriority string `json:"ext_priority"`
+	// ExternalStatus is the external bug status, e.g. Closed (depending on bug system).
+	ExternalStatus string `json:"ext_status"`
 
 	// The following fields are parsed from the external bug identifier for github pulls. These are only filled by GetExternalBugPRsOnBug.
 	Org, Repo string
