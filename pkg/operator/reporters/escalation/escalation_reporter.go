@@ -64,14 +64,19 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 	assigned := map[string][]*bugzilla.Bug{}
 	silenced := []*bugzilla.Bug{}
 	leadsBugs := map[string][]*bugzilla.Bug{}
+	questionable := map[int]bool{}
 	missingComponents := sets.NewString()
 	for _, b := range urgentSeverityBugs {
 		escalationFlag := b.Escalation == "Yes"
 		customerCases := false
+		highOrUrgent := false
 		for _, eb := range b.ExternalBugs {
-			if eb.Type.Type == "SFDC" {
+			if eb.Type.Type == "SFDC" && eb.ExternalStatus != "Closed" {
 				customerCases = true
-				break
+
+				if prio := strings.ToLower(eb.ExternalPriority); strings.Contains(prio, "high") || strings.Contains(prio, "urgent") {
+					highOrUrgent = true
+				}
 			}
 		}
 
@@ -86,6 +91,10 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 
 				if len(comp.Lead) > 0 {
 					leadsBugs[comp.Lead] = append(leadsBugs[comp.Lead], b)
+				}
+
+				if !highOrUrgent {
+					questionable[b.ID] = true
 				}
 			}
 		} else if customerCases && b.Severity == "urgent" && b.Priority != "urgent" {
@@ -120,7 +129,13 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		for _, b := range bugs {
-			lines = append(lines, fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary))
+			line := fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary)
+
+			if questionable[b.ID] {
+				line += " — :warning: no high/urgent customer case, or closed, double check!"
+			}
+
+			lines = append(lines, line)
 		}
 	}
 

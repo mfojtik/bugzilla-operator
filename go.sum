@@ -359,6 +359,8 @@ github.com/sttts/bugzilla v0.0.0-20201127141113-7779a9ac1b19 h1:OAOGN5JVSpBFfast
 github.com/sttts/bugzilla v0.0.0-20201127141113-7779a9ac1b19/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
 github.com/sttts/bugzilla v0.0.0-20201207155830-bdebb1b9b262 h1:sjyu9OvZhqsL5S2C8mDk/0IPZ7jWNV8BBWKmTtE/Jbw=
 github.com/sttts/bugzilla v0.0.0-20201207155830-bdebb1b9b262/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
+github.com/sttts/bugzilla v0.0.0-20210108140011-db2bc7459938 h1:UwD1tBALfugh+AtRQG4axuSG8ydwgBeAq9EYswHttB4=
+github.com/sttts/bugzilla v0.0.0-20210108140011-db2bc7459938/go.mod h1:rL9T9C00qg+aIkHUu2ENFSP49Wx9KwF+uSSF0rml5KQ=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
