@@ -220,7 +220,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				},
 				"escalations": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					return escalation.Report(ctx, client, nil, recorder, &cfg, cfg.Components.List())
+					report, _, err := escalation.Report(ctx, client, nil, recorder, &cfg, cfg.Components.List())
+					return report, err
 				},
 
 				// don't forget to also add new reports above in the trigger command

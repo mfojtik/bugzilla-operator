@@ -3,6 +3,8 @@ package escalation
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
@@ -38,32 +40,56 @@ func (c *EscalationReporter) sync(ctx context.Context, syncCtx factory.SyncConte
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
-	report, err := Report(ctx, client, slackClient, syncCtx.Recorder(), &c.config, c.components)
+	report, componentStats, err := Report(ctx, client, slackClient, syncCtx.Recorder(), &c.config, c.components)
 	if err != nil {
 		return err
 	}
-	if len(report) == 0 {
-		return nil
+
+	// print group report
+	if len(report) > 0 {
+		if err := slackClient.MessageChannel(report); err != nil {
+			syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
+			return err
+		}
 	}
 
-	if err := slackClient.MessageChannel(report); err != nil {
-		syncCtx.Recorder().Warningf("DeliveryFailed", "Failed to deliver closed bug counts: %v", err)
+	// send component stats to admin channel
+	lines := []string{"Component escalation stats:"}
+	ordered := []string{}
+	for comp := range componentStats {
+		ordered = append(ordered, comp)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		return len(componentStats[ordered[i]]) > len(componentStats[ordered[j]])
+	})
+	for _, comp := range ordered {
+		bugs := componentStats[comp]
+		ids := []int{}
+		for _, b := range bugs {
+			ids = append(ids, b.ID)
+		}
+		line := fmt.Sprintf("- %s: %d", makeBugzillaLink(comp, ids...), len(bugs))
+		lines = append(lines, line)
+	}
+	if err := slackClient.MessageAdminChannel(strings.Join(lines, "\n")); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, slack slack.ChannelClient, recorder events.Recorder, cfg *config.OperatorConfig, components []string) (string, error) {
-	urgentSeverityBugs, err := getSeverityUrgentBugs(client, cfg, components)
+func Report(ctx context.Context, client cache.BugzillaClient, slack slack.ChannelClient, recorder events.Recorder, cfg *config.OperatorConfig, components []string) (string, map[string][]*bugzilla.Bug, error) {
+	ourComponents := sets.NewString(components...)
+	urgentSeverityBugs, err := getSeverityUrgentBugs(client, cfg)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
-		return "", err
+		return "", nil, err
 	}
 
 	assigned := map[string][]*bugzilla.Bug{}
 	silenced := []*bugzilla.Bug{}
 	leadsBugs := map[string][]*bugzilla.Bug{}
+	componentStats := map[string][]*bugzilla.Bug{}
 	questionable := map[int]bool{}
 	missingComponents := sets.NewString()
 	for _, b := range urgentSeverityBugs {
@@ -80,24 +106,43 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			}
 		}
 
-		if escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified") {
+		ours := false
+		for _, c := range b.Component {
+			if ourComponents.Has(c) {
+				ours = true
+				break
+			}
+		}
+
+		isEscalation := escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
+		isSilenced := customerCases && b.Severity == "urgent" && b.Priority != "urgent"
+
+		if isEscalation {
+			for _, c := range b.Component {
+				componentStats[c] = append(componentStats[c], b)
+			}
+		}
+
+		if !ours {
+			continue
+		}
+
+		if isEscalation {
 			assigned[b.AssignedTo] = append(assigned[b.AssignedTo], b)
 
-			if len(b.Component) > 0 {
-				comp, ok := cfg.Components[b.Component[0]]
-				if !ok {
-					missingComponents.Insert(b.Component[0])
-				}
-
-				if len(comp.Lead) > 0 {
-					leadsBugs[comp.Lead] = append(leadsBugs[comp.Lead], b)
-				}
-
-				if !highOrUrgent {
-					questionable[b.ID] = true
-				}
+			comp, ok := cfg.Components[b.Component[0]]
+			if !ok {
+				missingComponents.Insert(b.Component[0])
 			}
-		} else if customerCases && b.Severity == "urgent" && b.Priority != "urgent" {
+
+			if len(comp.Lead) > 0 {
+				leadsBugs[comp.Lead] = append(leadsBugs[comp.Lead], b)
+			}
+
+			if !highOrUrgent {
+				questionable[b.ID] = true
+			}
+		} else if isSilenced {
 			silenced = append(silenced, b)
 		}
 	}
@@ -107,7 +152,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 	}
 
 	if len(leadsBugs) == 0 && len(silenced) == 0 {
-		return "", nil
+		return "", componentStats, nil
 	}
 
 	lines := []string{"Escalation report:", ""}
@@ -167,7 +212,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		lines = append(lines, "", fmt.Sprintf("%d silenced bugs :see_no_evil: : %s", len(links), strings.Join(links, " ")))
 	}
 
-	return strings.Join(lines, "\n"), nil
+	return strings.Join(lines, "\n"), componentStats, nil
 }
 
 func max(x, y int) int {
@@ -177,12 +222,11 @@ func max(x, y int) int {
 	return y
 }
 
-func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
+func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
-		Component:      components,
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
@@ -194,4 +238,16 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"summary",
 		},
 	})
+}
+
+func makeBugzillaLink(hrefText string, ids ...int) string {
+	u, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?f1=bug_id&list_id=11100046&o1=anyexact&query_format=advanced")
+	e := u.Query()
+	stringIds := make([]string, len(ids))
+	for i := range stringIds {
+		stringIds[i] = fmt.Sprintf("%d", ids[i])
+	}
+	e.Add("v1", strings.Join(stringIds, ","))
+	u.RawQuery = e.Encode()
+	return fmt.Sprintf("<%s|%s>", u.String(), hrefText)
 }
