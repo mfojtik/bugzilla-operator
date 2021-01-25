@@ -53,13 +53,35 @@ func (c *StaleController) handleBug(bug bugzilla.Bug) (*bugzilla.BugUpdate, erro
 		Status:    "?",
 		Requestee: bug.Creator,
 	})
-	bugUpdate.Flags = flags
 
 	bugUpdate.Priority = bugutil.DegradePriority(priorityTransitions, bug.Priority)
+
+	// if the target bug priority is being degraded to "low", make sure to also set the blocker? flag to blocker-
+	if bugUpdate.Priority == "low" && hasBlockerQuestionMark(bug) {
+		flags = append(flags, bugzilla.FlagChange{
+			Name:      "blocker",
+			Status:    "-",
+			Requestee: "eparis",
+		})
+	}
+
+	bugUpdate.Flags = flags
 	bugUpdate.Comment = &bugzilla.BugComment{
 		Body: c.config.StaleBugComment,
 	}
 	return &bugUpdate, nil
+}
+
+func hasBlockerQuestionMark(bz bugzilla.Bug) bool {
+	for _, f := range bz.Flags {
+		if f.Name != "blocker" {
+			continue
+		}
+		if f.Status == "?" {
+			return true
+		}
+	}
+	return false
 }
 
 var processKeywords = []string{
