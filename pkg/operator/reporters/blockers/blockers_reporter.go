@@ -146,18 +146,6 @@ func getBugsQuery(config *config.OperatorConfig, components []string, targetRele
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
 		Component:      components,
 		TargetRelease:  targetRelease,
-		Advanced: []bugzilla.AdvancedQuery{
-			{
-				Field: "bug_severity",
-				Op:    "notequals",
-				Value: "low",
-			},
-			{
-				Field: "priority",
-				Op:    "notequals",
-				Value: "low",
-			},
-		},
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
