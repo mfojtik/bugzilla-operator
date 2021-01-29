@@ -37,22 +37,23 @@ func BugCountPlural(c int, capitalize bool) string {
 	return fmt.Sprintf("%d %s", c, out)
 }
 
-func FormatBugMessage(b bugzilla.Bug) string {
-	format := func(priority string) string {
-		switch priority {
-		case "urgent":
-			return ":warning:*urgent*"
-		case "high":
-			return "*high*"
-		case "low":
-			return "low"
-		default:
-			return "_" + priority + "_"
-		}
+func FormatPriority(priority string) string {
+	switch priority {
+	case "urgent":
+		return ":warning:*urgent*"
+	case "high":
+		return "*high*"
+	case "low":
+		return "low"
+	default:
+		return "_" + priority + "_"
 	}
+}
+
+func FormatBugMessage(b bugzilla.Bug) string {
 	prio := ""
 	if len(b.Priority) > 0 && len(b.Severity) > 0 {
-		prio = fmt.Sprintf(" (%s/%s)", format(b.Severity), format(b.Priority))
+		prio = fmt.Sprintf(" (%s/%s)", FormatPriority(b.Severity), FormatPriority(b.Priority))
 	}
 	return fmt.Sprintf("> %s [*%s*] %s%s", GetBugURL(b), b.Status, b.Summary, prio)
 }

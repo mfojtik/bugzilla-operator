@@ -29,6 +29,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/unfurl"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
 )
@@ -50,7 +51,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
 
 	recorder := slack.NewRecorder(slackAdminClient, "BugzillaOperator")
-
 	defer func() {
 		recorder.Warningf("Shutdown", ":crossed_fingers: *The bot is shutting down*")
 	}()
@@ -71,6 +71,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	})
 
 	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
+
+	// Setup unfurl handlers
+	if err := unfurl.UnfurlBugzillaLinks(slackerInstance, slackClient, newAnonymousBugzillaClient(slackAdminClient)(false)); err != nil {
+		return err
+	}
 
 	kubeConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -291,6 +296,18 @@ func newBugzillaClient(cfg *config.OperatorConfig, slackDebugClient slack.Channe
 		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
 		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
+		if debug {
+			return &loggingReadOnlyClient{delegate: c, slackLoggingClient: slackDebugClient}
+		}
+		return c
+	}
+}
+
+func newAnonymousBugzillaClient(slackDebugClient slack.ChannelClient) func(debug bool) cache.BugzillaClient {
+	return func(debug bool) cache.BugzillaClient {
+		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
+			return nil
+		}, bugzillaEndpoint), cache.CustomCachePrefix("anonymous"))
 		if debug {
 			return &loggingReadOnlyClient{delegate: c, slackLoggingClient: slackDebugClient}
 		}
