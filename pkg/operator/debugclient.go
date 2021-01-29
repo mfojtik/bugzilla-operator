@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/eparis/bugzilla"
 	"k8s.io/klog"
@@ -17,7 +18,7 @@ type loggingReadOnlyClient struct {
 
 var _ cache.BugzillaClient = &loggingReadOnlyClient{}
 
-func (lrc *loggingReadOnlyClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, error) {
+func (lrc *loggingReadOnlyClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, time.Duration, error) {
 	return lrc.delegate.GetCachedBug(id, lastChangedTime)
 }
 
