@@ -66,7 +66,12 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 			if len(b.TargetRelease) > 0 {
 				target = b.TargetRelease[0]
 			}
-			text := fmt.Sprintf(":bugzilla: *%d* – %s – %s/%s @ %s / %s", id, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), b.Component, target)
+			version := "---"
+			if len(b.Version) > 0 {
+				version = b.Version[0]
+			}
+
+			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in %s for %s/%s", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), b.Component, version, target)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{
 					slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", text, true, false), nil, nil),
