@@ -1,6 +1,7 @@
 package unfurl
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -68,7 +69,7 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 			}
 
 			version := "---"
-			if len(b.Version) > 0 {
+			if len(b.Version) > 0 && b.Version[0] != "unspecified" {
 				version = b.Version[0]
 			}
 
@@ -79,7 +80,7 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 				components = fmt.Sprintf("%s", b.Component)
 			}
 
-			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in %s for %s/%s", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), components, version, target)
+			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in *%s* for *%s*/*%s*", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), components, version, target)
 			klog.Infof("Sending unfurl text: %s", text)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{
@@ -87,6 +88,9 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 				}},
 			}
 		}
+
+		bs, _ := json.MarshalIndent(unfurls, "", "  ")
+		klog.Infof("Unfurling: %s", string(bs))
 
 		_, _, _, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
