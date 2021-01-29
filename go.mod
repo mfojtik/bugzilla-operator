@@ -15,7 +15,7 @@ require (
 	github.com/shomali11/commander v0.0.0-20191122162317-51bc574c29ba
 	github.com/shomali11/proper v0.0.0-20190608032528-6e70a05688e7
 	github.com/sirupsen/logrus v1.6.0
-	github.com/slack-go/slack v0.7.0
+	github.com/slack-go/slack v0.8.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
