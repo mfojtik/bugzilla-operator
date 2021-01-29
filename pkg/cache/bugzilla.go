@@ -50,12 +50,13 @@ type cachedBug struct {
 }
 
 func (c *cachedClient) GetBug(id int) (*bugzilla.Bug, error) {
+	now := time.Now()
 	b, err := c.Client.GetBug(id)
 	if err != nil {
 		return nil, err
 	}
-	cb := cachedBug{b, time.Now().Format(time.RFC3339)}
-	bs, err := json.Marshal(cb)
+	cb := cachedBug{b, now.Format(time.RFC3339)}
+	bs, err := json.Marshal(&cb)
 	if err != nil {
 		return nil, err
 	}
