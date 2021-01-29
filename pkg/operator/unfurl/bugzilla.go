@@ -53,6 +53,7 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 			}
 
 			if age > time.Minute*10 {
+				klog.Infof("bug %d is %v old in cache, refreshing", id, age)
 				// refresh
 				b, err = bzClient.GetBug(id)
 				if err != nil {
