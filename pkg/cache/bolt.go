@@ -24,7 +24,7 @@ func Close() {
 }
 
 func Get(name string, revision string) ([]byte, error) {
-	if db == nil || revision == "" {
+	if db == nil {
 		return nil, nil
 	}
 
@@ -36,12 +36,14 @@ func Get(name string, revision string) ([]byte, error) {
 			res, resErr = nil, nil
 			return nil
 		}
-		v := b.Get([]byte("revision"))
-		if revision != "" && string(v) != revision {
-			res, resErr = nil, nil
-			return nil
+		if revision != "" {
+			v := b.Get([]byte("revision"))
+			if string(v) != revision {
+				res, resErr = nil, nil
+				return nil
+			}
 		}
-		v = b.Get([]byte("data"))
+		v := b.Get([]byte("data"))
 		res, resErr = make([]byte, len(v)), nil
 		copy(res, v)
 		klog.Infof("Cache hit for %q revision %q", name, revision)
