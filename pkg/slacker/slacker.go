@@ -42,6 +42,8 @@ type Slacker struct {
 	botCommands           []BotCommand
 	helpDefinition        *CommandDefinition
 	defaultMessageHandler func(request Request, response ResponseWriter)
+
+	linkSharedSubscribers []func(*slackevents.LinkSharedEvent)
 }
 
 func NewSlacker(client *slack.Client, opt Options) *Slacker {
@@ -105,37 +107,37 @@ func (s *Slacker) Listen(ctx context.Context) error {
 			innerEvent := eventsAPIEvent.InnerEvent
 			klog.Infof("CallbackEvent: %s", innerEvent.Type)
 
-			if ev, ok := innerEvent.Data.(*slackevents.AppMentionEvent); ok {
-				// fake message event
-				innerEvent = slackevents.EventsAPIInnerEvent{
-					Type: ev.Type,
-					Data: &slackevents.MessageEvent{
-						Type:            ev.Type,
-						User:            ev.User,
-						Text:            ev.Text,
-						TimeStamp:       ev.TimeStamp,
-						ThreadTimeStamp: ev.ThreadTimeStamp,
-						Channel:         ev.Channel,
-						EventTimeStamp:  ev.EventTimeStamp,
-						UserTeam:        ev.UserTeam,
-						SourceTeam:      ev.SourceTeam,
-					},
-				}
-			}
-
 			switch ev := innerEvent.Data.(type) {
-			case *slackevents.MessageEvent:
-				// ignore my own messages
-				if len(ev.BotID) > 0 {
-					break
+			case *slackevents.AppMentionEvent:
+				// fake message event
+				msgEv := &slackevents.MessageEvent{
+					Type:            ev.Type,
+					User:            ev.User,
+					Text:            ev.Text,
+					TimeStamp:       ev.TimeStamp,
+					ThreadTimeStamp: ev.ThreadTimeStamp,
+					Channel:         ev.Channel,
+					EventTimeStamp:  ev.EventTimeStamp,
+					UserTeam:        ev.UserTeam,
+					SourceTeam:      ev.SourceTeam,
 				}
 
-				go s.handleMessage(ctx, s.client, ev)
+				// ignore my own messages
+				if len(ev.BotID) == 0 {
+					go s.handleMessage(ctx, s.client, msgEv)
+				}
+			case *slackevents.LinkSharedEvent:
+				for _, l := range ev.Links {
+					klog.Infof("Received link: %s", l.URL)
+				}
+				for _, s := range s.linkSharedSubscribers {
+					s(ev)
+				}
 			}
 		}
 	})
 
-	klog.Infof("sttts-bot up and listening to slack on %s", s.listenAddress)
+	klog.Infof("bot up and listening to slack on %s", s.listenAddress)
 	server := &http.Server{Addr: s.listenAddress, Handler: handlers.LoggingHandler(os.Stdout, mux)}
 	go func() {
 		<-ctx.Done()
@@ -175,6 +177,12 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 		s.defaultMessageHandler(request, response)
 	}
 }
+
+func (s *Slacker) SubscribeLinkShared(f func(ev *slackevents.LinkSharedEvent)) error {
+	s.linkSharedSubscribers = append(s.linkSharedSubscribers, f)
+	return nil
+}
+
 
 func unescape(input string) string {
 	return strings.Map(func(r rune) rune {
