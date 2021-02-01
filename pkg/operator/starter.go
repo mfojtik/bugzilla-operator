@@ -9,6 +9,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
+	"github.com/google/go-github/v33/github"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	slackgo "github.com/slack-go/slack"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -74,6 +75,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 	// Setup unfurl handlers
 	if err := unfurl.UnfurlBugzillaLinks(slackerInstance, slackClient, newAnonymousBugzillaClient(slackAdminClient)(false)); err != nil {
+		return err
+	}
+	if err := unfurl.UnfurlGithubLinks(slackerInstance, slackClient, github.NewClient(nil)); err != nil {
 		return err
 	}
 
