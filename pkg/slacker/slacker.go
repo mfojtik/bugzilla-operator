@@ -130,7 +130,6 @@ func (s *Slacker) Listen(ctx context.Context) error {
 
 				go s.handleMessage(ctx, s.client, msgEv)
 			case *slackevents.LinkSharedEvent:
-				klog.Infof("LinkSharedEvent from user %q", ev.User)
 				for _, l := range ev.Links {
 					klog.Infof("Received link: %s", l.URL)
 				}
