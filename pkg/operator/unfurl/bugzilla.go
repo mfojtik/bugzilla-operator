@@ -1,7 +1,6 @@
 package unfurl
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -93,8 +92,9 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 			}
 		}
 
-		bs, _ := json.MarshalIndent(unfurls, "", "  ")
-		klog.Infof("Unfurling: %s", string(bs))
+		if len(unfurls) == 0 {
+			return
+		}
 
 		_, _, _, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
