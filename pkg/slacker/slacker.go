@@ -123,15 +123,19 @@ func (s *Slacker) Listen(ctx context.Context) error {
 				}
 
 				// ignore my own messages
-				if len(ev.BotID) == 0 {
-					go s.handleMessage(ctx, s.client, msgEv)
+				if len(ev.BotID) > 0 {
+					klog.Infof("Ignoring AppMentionEvent for bot")
+					break
 				}
+
+				go s.handleMessage(ctx, s.client, msgEv)
 			case *slackevents.LinkSharedEvent:
+				klog.Infof("LinkSharedEvent from user %q", ev.User)
 				for _, l := range ev.Links {
 					klog.Infof("Received link: %s", l.URL)
 				}
 				for _, s := range s.linkSharedSubscribers {
-					s(ev)
+					go s(ev)
 				}
 			}
 		}
@@ -182,7 +186,6 @@ func (s *Slacker) SubscribeLinkShared(f func(ev *slackevents.LinkSharedEvent)) e
 	s.linkSharedSubscribers = append(s.linkSharedSubscribers, f)
 	return nil
 }
-
 
 func unescape(input string) string {
 	return strings.Map(func(r rune) rune {
