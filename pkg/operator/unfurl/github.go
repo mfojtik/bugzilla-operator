@@ -2,6 +2,7 @@ package unfurl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -61,7 +62,7 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 				continue
 			}
 
-			text := fmt.Sprintf(":github: <https://github.com/%s/%s/pull/%d|%s/%s#%d> [*%s*] %s", org, repo, id, org, repo, id, prState(pr), *pr.Title)
+			text := fmt.Sprintf(":github: <https://github.com/%s/%s/pull/%d|%s/%s#%d> [*%s*] %s – by %s", org, repo, id, org, repo, id, prState(pr), *pr.Title, prAuthor(pr))
 			klog.Infof("Sending unfurl text: %s", text)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{
@@ -73,6 +74,9 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 		if len(unfurls) == 0 {
 			return
 		}
+
+		bs, _ := json.MarshalIndent(unfurls, "", "  ")
+		klog.Infof("Unfurling: %s", string(bs))
 
 		_, _, _, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
@@ -92,4 +96,17 @@ func prState(pr *github.PullRequest) string {
 		return *pr.State
 	}
 	return "unknown"
+}
+
+func prAuthor(pr *github.PullRequest) string {
+	if pr == nil {
+		return ""
+	}
+	if pr.User == nil {
+		return "unknown"
+	}
+	if pr.User.Login == nil {
+		return "unknown"
+	}
+	return *pr.User.Login
 }
