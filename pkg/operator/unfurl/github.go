@@ -2,7 +2,6 @@ package unfurl
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -38,9 +37,10 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 			}
 
 			comps := strings.Split(strings.TrimLeft(u.Path, "/"), "/")
-			if len(comps) != 4 || comps[2] == "pull" {
+			if len(comps) != 4 || comps[2] != "pull" {
 				continue
 			}
+			org, repo := comps[0], comps[1]
 
 			id, err := strconv.Atoi(comps[3])
 			if err != nil {
@@ -52,7 +52,7 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
-			pr, resp, err := ghClient.PullRequests.Get(ctx, comps[0], comps[1], id)
+			pr, resp, err := ghClient.PullRequests.Get(ctx, org, repo, id)
 			if err != nil {
 				klog.Errorf("failed to get %s: %v", u.String(), err)
 				continue
@@ -61,7 +61,7 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 				continue
 			}
 
-			text := fmt.Sprintf(":github: <https://github.com/%s/%s/pull/%d|%s/%s#%d> [*%s*] %s", comps[0], comps[1], id, comps[0], comps[1], id, prState(pr), *pr.Title)
+			text := fmt.Sprintf(":github: <https://github.com/%s/%s/pull/%d|%s/%s#%d> [*%s*] %s", org, repo, id, org, repo, id, prState(pr), *pr.Title)
 			klog.Infof("Sending unfurl text: %s", text)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{
@@ -70,8 +70,9 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 			}
 		}
 
-		bs, _ := json.MarshalIndent(unfurls, "", "  ")
-		klog.Infof("Unfurling: %s", string(bs))
+		if len(unfurls) == 0 {
+			return
+		}
 
 		_, _, _, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
