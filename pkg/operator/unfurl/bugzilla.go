@@ -96,9 +96,9 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 			return
 		}
 
-		_, _, _, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
+		_, _, response, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
-			klog.Infof("failed unfurling: %v", err)
+			klog.Infof("failed unfurling: %v: %s", err, response)
 		}
 	})
 }
