@@ -21,6 +21,10 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 	return bus.SubscribeLinkShared(func(ev *slackevents.LinkSharedEvent) {
 		unfurls := map[string]slack.Attachment{}
 
+		if ev.User == "U013V0M0H4L" {
+			return
+		}
+
 		for _, l := range ev.Links {
 			// example: https://bugzilla.redhat.com/show_bug.cgi?id=1873114
 
