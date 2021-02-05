@@ -182,7 +182,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		for _, b := range bugs {
-			line := fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary)
+			line := fmt.Sprintf("> %s [*%s*] @ %s: %s – in *%s* for *%s*", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary, bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.TargetRelease))
 
 			if questionable[b.ID] {
 				line += " — :warning: no high/urgent customer case, or closed, double check!"
