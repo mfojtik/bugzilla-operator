@@ -114,7 +114,15 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			}
 		}
 
-		isEscalation := escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
+		openshiftBugEscalate := false
+		for _, cc := range b.CC {
+			if cc == "openshift-bugs-escalate" {
+				openshiftBugEscalate = true
+				break
+			}
+		}
+
+		isEscalation := escalationFlag || openshiftBugEscalate || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
 		isSilenced := customerCases && b.Severity == "urgent" && b.Priority != "urgent"
 
 		if isEscalation {
@@ -236,6 +244,8 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"external_bugs",
 			"component",
 			"summary",
+			"cc",
+			"cf_cust_facing",
 		},
 	})
 }
