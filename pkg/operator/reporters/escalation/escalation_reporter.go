@@ -114,7 +114,15 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			}
 		}
 
-		isEscalation := escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
+		openshiftBugEscalate := false
+		for _, cc := range b.CC {
+			if cc == "openshift-bugs-escalate" {
+				openshiftBugEscalate = true
+				break
+			}
+		}
+
+		isEscalation := escalationFlag || openshiftBugEscalate || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
 		isSilenced := customerCases && b.Severity == "urgent" && b.Priority != "urgent"
 
 		if isEscalation {
@@ -174,7 +182,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		for _, b := range bugs {
-			line := fmt.Sprintf("> %s %s @ %s: %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary)
+			line := fmt.Sprintf("> %s [*%s*] @ %s: %s – in *%s* for *%s*", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary, bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.TargetRelease))
 
 			if questionable[b.ID] {
 				line += " — :warning: no high/urgent customer case, or closed, double check!"
@@ -226,7 +234,7 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
-		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
+		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV", "MODIFIED", "ON_QA", "RELEASE_PENDING"},
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
@@ -236,6 +244,8 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"external_bugs",
 			"component",
 			"summary",
+			"cc",
+			"cf_cust_facing",
 		},
 	})
 }

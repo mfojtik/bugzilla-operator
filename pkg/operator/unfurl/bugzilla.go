@@ -66,24 +66,7 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 				}
 			}
 
-			target := "---"
-			if len(b.TargetRelease) > 0 {
-				target = b.TargetRelease[0]
-			}
-
-			version := "---"
-			if len(b.Version) > 0 && b.Version[0] != "unspecified" {
-				version = b.Version[0]
-			}
-
-			components := "---"
-			if len(b.Component) == 1 {
-				components = b.Component[0]
-			} else if len(b.Component) > 0 {
-				components = fmt.Sprintf("%s", b.Component)
-			}
-
-			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in *%s* for *%s*/*%s*", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), components, version, target)
+			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in *%s* for *%s*/*%s*", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.Version), bugutil.FormatVersion(b.TargetRelease))
 			klog.Infof("Sending unfurl text: %s", text)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{

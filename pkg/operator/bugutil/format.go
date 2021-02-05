@@ -67,3 +67,19 @@ func DegradePriority(trans []config.Transition, in string) string {
 	}
 	return ""
 }
+
+func FormatVersion(vs []string) string {
+	if len(vs) > 0 {
+		return vs[0]
+	}
+	return "---"
+}
+
+func FormatComponent(cs []string) string {
+	if len(cs) == 1 {
+		return cs[0]
+	} else if len(cs) > 0 {
+		return fmt.Sprintf("%s", cs)
+	}
+	return "---"
+}
