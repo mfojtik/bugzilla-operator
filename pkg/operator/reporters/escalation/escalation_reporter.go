@@ -237,6 +237,7 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"component",
 			"summary",
 			"cf_cust_facing",
+			"target_release",
 		},
 	})
 }
