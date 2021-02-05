@@ -234,7 +234,7 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
-		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
+		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV", "MODIFIED", "ON_QA", "RELEASE_PENDING"},
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
