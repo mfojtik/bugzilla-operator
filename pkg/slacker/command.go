@@ -11,11 +11,17 @@ type CommandDefinition struct {
 	Example           string
 	AuthorizationFunc func(request Request) bool
 	Handler           func(request Request, response ResponseWriter)
+	Init              func()
 }
 
 // NewBotCommand creates a new bot command object
 func NewBotCommand(usage string, definition *CommandDefinition) BotCommand {
 	command := commander.NewCommand(usage)
+
+	if definition.Init != nil {
+		definition.Init()
+	}
+
 	return &botCommand{
 		usage:      usage,
 		definition: definition,
