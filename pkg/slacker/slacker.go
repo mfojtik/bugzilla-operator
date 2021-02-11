@@ -43,15 +43,16 @@ type Slacker struct {
 	helpDefinition        *CommandDefinition
 	defaultMessageHandler func(request Request, response ResponseWriter)
 
-	linkSharedSubscribers    []func(*slackevents.LinkSharedEvent)
+	linkSharedSubscribers  []func(*slackevents.LinkSharedEvent)
 	blockActionSubscribers map[string]func(message *slack.Container, user *slack.User, action *slack.BlockAction) // by block ID
 }
 
 func NewSlacker(client *slack.Client, opt Options) *Slacker {
 	return &Slacker{
-		client:            client,
-		listenAddress:     opt.ListenAddress,
-		verificationToken: opt.VerificationToken,
+		client:                 client,
+		listenAddress:          opt.ListenAddress,
+		verificationToken:      opt.VerificationToken,
+		blockActionSubscribers: map[string]func(message *slack.Container, user *slack.User, action *slack.BlockAction){},
 	}
 }
 
