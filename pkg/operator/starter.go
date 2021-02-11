@@ -202,17 +202,24 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackerInstance.Command("admin interact", &slacker.CommandDefinition{
 		Description: "Trigger some interaction",
 		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
-			w.Reply("foo")
 			w.Client().PostMessage(
 				req.Event().Channel,
 				slackgo.MsgOptionBlocks(
 					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", "Some interaction.", false, false), nil, nil),
-					slackgo.NewActionBlock("foo",
+					slackgo.NewActionBlock("admin-interact",
 						slackgo.NewButtonBlockElement("btn", "some value", slackgo.NewTextBlockObject("plain_text", "Create bug :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
 					),
 				),
 			)
 		}, "group:admins"),
+		Init: func() {
+			slackerInstance.SubscribeBlockAction("admin-interact", func(msg *slackgo.Container, u *slackgo.User, a *slackgo.BlockAction) {
+				slackClient.SendMessage(
+					msg.ChannelID,
+					slackgo.MsgOptionText(fmt.Sprintf("%s clicked button with value %q", u.Name, a.Value), false),
+				)
+			})
+		},
 	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: fmt.Sprintf("Run a report and print result here: %s", strings.Join(scheduledReportNames.List(), ", ")),

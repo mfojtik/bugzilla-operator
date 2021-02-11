@@ -44,7 +44,7 @@ type Slacker struct {
 	defaultMessageHandler func(request Request, response ResponseWriter)
 
 	linkSharedSubscribers    []func(*slackevents.LinkSharedEvent)
-	interactivitySubscribers map[string]func(cb *slack.InteractionCallback) // by block ID
+	blockActionSubscribers map[string]func(message *slack.Container, user *slack.User, action *slack.BlockAction) // by block ID
 }
 
 func NewSlacker(client *slack.Client, opt Options) *Slacker {
@@ -162,8 +162,19 @@ func (s *Slacker) Listen(ctx context.Context) error {
 			return
 		}
 
-		if handler := s.interactivitySubscribers[cb.BlockID]; handler != nil {
-			handler(&cb)
+		if cb.Token != s.verificationToken {
+			w.Write([]byte("Permission denied."))
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		switch cb.Type {
+		case "block_actions":
+			for _, a := range cb.ActionCallback.BlockActions {
+				if handler := s.blockActionSubscribers[a.BlockID]; handler != nil {
+					handler(&cb.Container, &cb.User, a)
+				}
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -215,8 +226,8 @@ func (s *Slacker) SubscribeLinkShared(f func(ev *slackevents.LinkSharedEvent)) e
 	return nil
 }
 
-func (s *Slacker) SubscribeInteractivity(blockId string, f func(cb *slack.InteractionCallback)) error {
-	s.interactivitySubscribers[blockId] = f
+func (s *Slacker) SubscribeBlockAction(blockId string, f func(message *slack.Container, user *slack.User, action *slack.BlockAction)) error {
+	s.blockActionSubscribers[blockId] = f
 	return nil
 }
 
