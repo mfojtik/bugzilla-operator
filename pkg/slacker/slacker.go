@@ -139,6 +139,14 @@ func (s *Slacker) Listen(ctx context.Context) error {
 			}
 		}
 	})
+	mux.HandleFunc("/interactivity", func(w http.ResponseWriter, r *http.Request) {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		body := buf.String()
+		klog.Infof("interactivity callback: %s", body)
+
+		w.WriteHeader(http.StatusOK)
+	})
 
 	klog.Infof("bot up and listening to slack on %s", s.listenAddress)
 	server := &http.Server{Addr: s.listenAddress, Handler: handlers.LoggingHandler(os.Stdout, mux)}

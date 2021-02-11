@@ -199,6 +199,19 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Description: fmt.Sprintf("Trigger a job to run in debug mode: %s", strings.Join(append(controllerNames.List(), scheduledReportNames.List()...), ", ")),
 		Handler:     auth(cfg, runJob(true), "group:admins"),
 	})
+	slackerInstance.Command("admin interact", &slacker.CommandDefinition{
+		Description: "Trigger some interaction",
+		Handler: auth(cfg, func(req slacker.Request, w slacker.ResponseWriter) {
+			w.Reply("foo")
+			w.Client().PostMessage(
+				req.Event().Channel,
+				slackgo.MsgOptionBlocks(
+					slackgo.NewTextBlockObject("mrkdwn", "Some interaction.", false, false),
+					slackgo.NewActionBlock("foo", slackgo.NewButtonBlockElement("btn", "some value", slackgo.NewTextBlockObject("mrkdwn", "Create bug :bugzilla:", false, false))),
+				),
+			)
+		}, "group:admins"),
+	})
 	slackerInstance.Command("report <job>", &slacker.CommandDefinition{
 		Description: fmt.Sprintf("Run a report and print result here: %s", strings.Join(scheduledReportNames.List(), ", ")),
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
