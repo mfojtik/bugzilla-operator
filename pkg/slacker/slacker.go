@@ -43,7 +43,8 @@ type Slacker struct {
 	helpDefinition        *CommandDefinition
 	defaultMessageHandler func(request Request, response ResponseWriter)
 
-	linkSharedSubscribers []func(*slackevents.LinkSharedEvent)
+	linkSharedSubscribers    []func(*slackevents.LinkSharedEvent)
+	interactivitySubscribers map[string]func(cb *slack.InteractionCallback) // by block ID
 }
 
 func NewSlacker(client *slack.Client, opt Options) *Slacker {
@@ -140,10 +141,30 @@ func (s *Slacker) Listen(ctx context.Context) error {
 		}
 	})
 	mux.HandleFunc("/interactivity", func(w http.ResponseWriter, r *http.Request) {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(r.Body)
-		body := buf.String()
-		klog.Infof("interactivity callback: %s", body)
+		if err := r.ParseForm(); err != nil {
+			w.Write([]byte(fmt.Sprintf("parse error: %v", err)))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		payload := r.PostForm.Get("payload")
+		if len(payload) == 0 {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		klog.Infof("InteractionCallback: %s", payload)
+
+		var cb slack.InteractionCallback
+		if err := json.Unmarshal([]byte(payload), &cb); err != nil {
+			w.Write([]byte(fmt.Sprintf("JSON parse error: %v", err)))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if handler := s.interactivitySubscribers[cb.BlockID]; handler != nil {
+			handler(&cb)
+		}
 
 		w.WriteHeader(http.StatusOK)
 	})
@@ -191,6 +212,11 @@ func (s *Slacker) handleMessage(ctx context.Context, client *slack.Client, messa
 
 func (s *Slacker) SubscribeLinkShared(f func(ev *slackevents.LinkSharedEvent)) error {
 	s.linkSharedSubscribers = append(s.linkSharedSubscribers, f)
+	return nil
+}
+
+func (s *Slacker) SubscribeInteractivity(blockId string, f func(cb *slack.InteractionCallback)) error {
+	s.interactivitySubscribers[blockId] = f
 	return nil
 }
 
