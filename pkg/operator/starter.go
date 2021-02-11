@@ -206,8 +206,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			w.Client().PostMessage(
 				req.Event().Channel,
 				slackgo.MsgOptionBlocks(
-					slackgo.NewTextBlockObject("mrkdwn", "Some interaction.", false, false),
-					slackgo.NewActionBlock("foo", slackgo.NewButtonBlockElement("btn", "some value", slackgo.NewTextBlockObject("mrkdwn", "Create bug :bugzilla:", false, false))),
+					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", "Some interaction.", false, false), nil, nil),
+					slackgo.NewActionBlock("foo",
+						slackgo.NewButtonBlockElement("btn", "some value", slackgo.NewTextBlockObject("plain_text", "Create bug :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
+					),
 				),
 			)
 		}, "group:admins"),
