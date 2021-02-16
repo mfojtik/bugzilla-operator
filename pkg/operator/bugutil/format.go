@@ -14,10 +14,28 @@ func GetBugURL(b bugzilla.Bug) string {
 	return fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID)
 }
 
+// 2020-09-23T13:06:29Z
+
+func ParseChangeWhenString(v string) time.Time {
+	parsedTime, err := time.Parse("2006-01-02T15:04:05Z", v)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsedTime
+}
+
+func ParseTimeString(v string) time.Time {
+	parsedTime, err := time.Parse("2006-01-02 15:04:05 -0700 MST", v)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsedTime
+}
+
 // ParseLastChangeTime parse the "2020-05-20 10:45:16 +0000 UTC" to "2020-05-20T10:45:16Z" which can be used for cache revision.
 func LastChangeTimeToRevision(value string) string {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05 -0700 MST", value)
-	if err != nil {
+	parsedTime := ParseTimeString(value)
+	if parsedTime.IsZero() {
 		return value
 	}
 	return parsedTime.Format("2006-01-02T15:04:05Z")

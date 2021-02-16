@@ -1,12 +1,17 @@
 package cache
 
 import (
-	"github.com/eparis/bugzilla"
 	"time"
+
+	"github.com/eparis/bugzilla"
 )
 
 type FakeBugzillaClient struct {
 	*bugzilla.Fake
+}
+
+func (f *FakeBugzillaClient) GetCachedExternalBugs(id int, lastChangedTime string) ([]bugzilla.ExternalBug, error) {
+	return f.GetCachedExternalBugs(id, lastChangedTime)
 }
 
 func (f *FakeBugzillaClient) GetCachedBug(id int, lastChangedTime string) (*bugzilla.Bug, time.Duration, error) {
