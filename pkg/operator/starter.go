@@ -32,6 +32,7 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/unfurl"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/whoown"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
 )
@@ -68,6 +69,46 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			w.Reply(msg)
 		},
 	})
+
+	slackerInstance.Command("who-own <component>", &slacker.CommandDefinition{
+		Description: "Print the owner of given component.",
+		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
+			tracker, err := whoown.NewTracker(cfg.TeamStructureCSVFile)
+			if err != nil {
+				w.Reply("The team member tracking file is missing :-(")
+				return
+			}
+
+			c := req.StringParam("component", "")
+
+			owners := []string{}
+			records := tracker.Component(c)
+			for _, r := range records {
+				owners = append(owners, r.String())
+			}
+
+			records = tracker.Description(c)
+			for _, r := range records {
+				owners = append(owners, r.String())
+			}
+
+			records = tracker.Keywords(c)
+			for _, r := range records {
+				owners = append(owners, r.String())
+			}
+
+			if len(owners) > 0 {
+				if len(owners) == 1 {
+					w.Reply(fmt.Sprintf("%s %s", c, owners[0]))
+					return
+				}
+				w.Reply(fmt.Sprintf("Multiple teams matched %s:\n%s", c, strings.Join(owners, "\n")))
+			} else {
+				w.Reply(fmt.Sprintf("No team matching %q", c))
+			}
+		},
+	})
+
 	slackerInstance.DefaultCommand(func(req slacker.Request, w slacker.ResponseWriter) {
 		w.Reply("Unknown command")
 	})
