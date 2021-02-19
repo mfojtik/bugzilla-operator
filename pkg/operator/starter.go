@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -359,17 +360,21 @@ func WithSearchLogging(client bugzilla.Client) bugzilla.Client {
 
 type searchLoggingClient struct{ bugzilla.Client }
 
+var searchCount int64
+
 func (c searchLoggingClient) Search(query bugzilla.Query) ([]*bugzilla.Bug, error) {
 	url, _ := url.Parse("https://bugzilla.redhat.com/rest/bug")
 	url.RawQuery = query.Values().Encode()
 
-	klog.Infof("Searching: %s", url.String())
+	no := atomic.AddInt64(&searchCount, 1)
+
+	klog.Infof("Searching [%d]: %s", no, url.String())
 	start := time.Now()
 	result, err := c.Client.Search(query)
 	if err != nil {
 		return nil, err
 	}
 
-	klog.Infof("Search returned %d result after %v", len(result), time.Since(start))
+	klog.Infof("Search [%d] returned %d result after %v", no, len(result), time.Since(start))
 	return result, err
 }
