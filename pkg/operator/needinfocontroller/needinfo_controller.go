@@ -88,15 +88,15 @@ nextBug:
 				continue
 			}
 
-			// ignore bugs with needinfo? on reporter or other ppl
+			// ignore needinfo? flag for other people
 			if f.Requestee != b.AssignedTo {
-				continue nextBug
+				continue
 			}
 
-			if creationDate, err := time.Parse(time.RFC3339, f.CreationDate); err != nil {
-				klog.Warningf("Cannot parse assignee needinfo? creation time %q of #%d: %v", b.LastChangeTime, b.ID, err)
-				continue nextBug
-			} else if creationDate.After(since) {
+			if flagDate, err := time.Parse(time.RFC3339, f.ModificationDate); err != nil {
+				klog.Warningf("Cannot parse assignee needinfo? modification time %q of #%d: %v", f.ModificationDate, b.ID, err)
+				continue
+			} else if flagDate.After(since) {
 				slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s has set `needinfo?` *on you* on :bugzilla: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>.", f.Setter, b.ID, b.ID, b.Summary))
 				continue nextBug
 			}
@@ -135,7 +135,7 @@ nextBug:
 		}
 
 		if somebodyElsesNeedInfoRemoved {
-			slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s *provided requested* info on :bugzilla: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>.", by, b.ID, b.ID, b.Summary))
+			slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s *provided requested info* on :bugzilla: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>.", by, b.ID, b.ID, b.Summary))
 		}
 	}
 
