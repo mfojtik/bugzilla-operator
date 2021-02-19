@@ -131,6 +131,16 @@ func (s *Slacker) Listen(ctx context.Context) error {
 				}
 
 				go s.handleMessage(ctx, s.client, msgEv)
+			case *slackevents.MessageEvent:
+				if ev.ChannelType == "im" {
+					// ignore my own messages
+					if len(ev.BotID) > 0 {
+						klog.Infof("Ignoring AppMentionEvent for bot")
+						break
+					}
+
+					go s.handleMessage(ctx, s.client, ev)
+				}
 			case *slackevents.LinkSharedEvent:
 				for _, l := range ev.Links {
 					klog.Infof("Received link: %s", l.URL)
