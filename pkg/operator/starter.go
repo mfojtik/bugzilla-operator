@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -330,9 +331,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 func newBugzillaClient(cfg *config.OperatorConfig, slackDebugClient slack.ChannelClient) func(debug bool) cache.BugzillaClient {
 	return func(debug bool) cache.BugzillaClient {
-		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
+		c := cache.NewCachedBugzillaClient(WithSearchLogging(bugzilla.NewClient(func() []byte {
 			return []byte(cfg.Credentials.DecodedAPIKey())
-		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword()))
+		}, bugzillaEndpoint).WithCGIClient(cfg.Credentials.DecodedUsername(), cfg.Credentials.DecodedPassword())))
 		if debug {
 			return &loggingReadOnlyClient{delegate: c, slackLoggingClient: slackDebugClient}
 		}
@@ -342,12 +343,33 @@ func newBugzillaClient(cfg *config.OperatorConfig, slackDebugClient slack.Channe
 
 func newAnonymousBugzillaClient(slackDebugClient slack.ChannelClient) func(debug bool) cache.BugzillaClient {
 	return func(debug bool) cache.BugzillaClient {
-		c := cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
+		c := cache.NewCachedBugzillaClient(WithSearchLogging(bugzilla.NewClient(func() []byte {
 			return nil
-		}, bugzillaEndpoint), cache.CustomCachePrefix("anonymous"))
+		}, bugzillaEndpoint)), cache.CustomCachePrefix("anonymous"))
 		if debug {
 			return &loggingReadOnlyClient{delegate: c, slackLoggingClient: slackDebugClient}
 		}
 		return c
 	}
+}
+
+func WithSearchLogging(client bugzilla.Client) bugzilla.Client {
+	return searchLoggingClient{client}
+}
+
+type searchLoggingClient struct{ bugzilla.Client }
+
+func (c searchLoggingClient) Search(query bugzilla.Query) ([]*bugzilla.Bug, error) {
+	url, _ := url.Parse("https://bugzilla.redhat.com/rest/bug")
+	url.RawQuery = query.Values().Encode()
+
+	klog.Infof("Searching: %s", url.String())
+	start := time.Now()
+	result, err := c.Client.Search(query)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.Infof("Search returned %d result after %v", len(result), time.Since(start))
+	return result, err
 }

@@ -2,7 +2,6 @@ package unfurl
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -74,9 +73,6 @@ func UnfurlGithubLinks(bus operatorslack.EventBus, client *slack.Client, ghClien
 		if len(unfurls) == 0 {
 			return
 		}
-
-		bs, _ := json.MarshalIndent(unfurls, "", "  ")
-		klog.Infof("Unfurling: %s", string(bs))
 
 		_, _, response, err := client.UnfurlMessage(ev.Channel, ev.MessageTimeStamp.String(), unfurls)
 		if err != nil {
