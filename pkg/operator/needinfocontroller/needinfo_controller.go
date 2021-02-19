@@ -3,6 +3,7 @@ package needinfocontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 type NeedInfoController struct {
 	controller.ControllerContext
-	config     config.OperatorConfig
+	config config.OperatorConfig
 }
 
 func NewNeedInfoController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
@@ -75,6 +76,11 @@ nextBug:
 			klog.Warningf("Cannot parse last-change-time %q of #%d: %v", b.LastChangeTime, b.ID, err)
 		} else if lastChange.After(lastSeenChange) {
 			lastSeenChange = lastChange
+		}
+
+		// ignore changes at exactly the edge because we can only search for >=
+		if !lastChange.After(since) {
+			continue
 		}
 
 		for _, f := range b.Flags {
@@ -142,13 +148,7 @@ func getNewBugs(client cache.BugzillaClient, components []string, changedAfter t
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST", "ON_DEV"},
 		Component:      components,
-		Advanced: []bugzilla.AdvancedQuery{
-			{
-				Field: "last_change_time",
-				Op:    "greaterthan",
-				Value: changedAfter.Format("2006-01-02T15:04:05Z"),
-			},
-		},
+		Raw:            fmt.Sprintf("last_change_time=%s", url.QueryEscape(changedAfter.Format("2006-01-02T15:04:05Z"))),
 		IncludeFields: []string{
 			"id",
 			"creation_time",
