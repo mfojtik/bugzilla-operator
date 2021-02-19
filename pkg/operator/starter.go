@@ -96,14 +96,13 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
 
 	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackAdminClient, slackDebugClient, cmClient)
-	controllerDebugContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackDebugClient, slackDebugClient, cmClient)
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
-		"needinfo":           needinfocontroller.NewNeedInfoController(controllerDebugContext, cfg, recorder),
+		"needinfo":           needinfocontroller.NewNeedInfoController(controllerContext, cfg, recorder),
 	}
 
 	// TODO: enable by default
