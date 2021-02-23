@@ -114,7 +114,9 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			}
 		}
 
-		isEscalation := escalationFlag || (customerCases && b.Priority == "urgent") || (customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
+		isEscalation := (escalationFlag && (b.Severity == "urgent" || b.Priority == "urgent")) ||
+			(customerCases && b.Priority == "urgent") ||
+			(customerCases && b.Severity == "urgent" && b.Priority == "unspecified")
 		isSilenced := customerCases && b.Severity == "urgent" && b.Priority != "urgent"
 
 		if isEscalation {
