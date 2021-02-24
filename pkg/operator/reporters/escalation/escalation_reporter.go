@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
+	humanize "github.com/dustin/go-humanize"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/eparis/bugzilla"
@@ -17,8 +17,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type EscalationReporter struct {
@@ -176,10 +178,49 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		}
 
 		for _, b := range bugs {
-			line := fmt.Sprintf("> %s [*%s*] @ %s: %s – in *%s* for *%s*", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary, bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.TargetRelease))
+			ageString := ""
+			lastChanged, err := time.Parse(time.RFC3339, b.LastChangeTime)
+			if err == nil {
+				ageString = fmt.Sprintf(" — touched %s", humanize.Time(lastChanged))
+			}
 
+			line := fmt.Sprintf("> %s [*%s*] @ %s: %s – in *%s* for *%s* %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary, bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.TargetRelease), ageString)
+
+			warnings := []string{}
 			if questionable[b.ID] {
-				line += " — :warning: no high/urgent customer case, or closed, double check!"
+				warnings = append(warnings, "no high/urgent customer case, or closed")
+			}
+
+			if !lastChanged.IsZero() {
+				max := time.Hour * 48
+				switch time.Now().Weekday() {
+				case time.Monday, time.Tuesday:
+					max += time.Hour * 48
+				}
+
+				if lastChanged.Before(time.Now().Add(-max)) {
+					needInfoFromReporter := false
+					needInfoFromUs := false
+					for _, f := range b.Flags {
+						if f.Name == "needinfo" && f.Status == "?" {
+							if f.Requestee == b.AssignedTo {
+								needInfoFromUs = true
+							} else {
+								needInfoFromReporter = true
+							}
+						}
+					}
+
+					if needInfoFromUs {
+						warnings = append(warnings, fmt.Sprintf("`needinfo?` from us older than 48h"))
+					} else if needInfoFromReporter {
+						warnings = append(warnings, fmt.Sprintf("`needinfo?` from reporter older than 48h"))
+					}
+				}
+			}
+
+			if len(warnings) > 0 {
+				line = fmt.Sprintf("%s  — :warning: %s. Double check!", strings.Join(warnings, ". "))
 			}
 
 			lines = append(lines, line)
@@ -240,6 +281,7 @@ func getSeverityUrgentBugs(client cache.BugzillaClient, config *config.OperatorC
 			"summary",
 			"cf_cust_facing",
 			"target_release",
+			"flags",
 		},
 	})
 }

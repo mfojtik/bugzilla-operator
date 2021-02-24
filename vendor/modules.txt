@@ -10,6 +10,9 @@ github.com/cespare/xxhash/v2
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/dustin/go-humanize v1.0.0
+## explicit
+github.com/dustin/go-humanize
 # github.com/eparis/bugzilla v0.0.0-20201207155830-bdebb1b9b262 => github.com/sttts/bugzilla v0.0.0-20210108140011-db2bc7459938
 ## explicit
 github.com/eparis/bugzilla
