@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/davecgh/go-spew v1.1.1
+	github.com/dustin/go-humanize v1.0.0
 	github.com/eparis/bugzilla v0.0.0-20201207155830-bdebb1b9b262
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-github/v33 v33.0.0
