@@ -9,8 +9,8 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog"
 
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -180,11 +180,18 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 		for _, b := range bugs {
 			ageString := ""
 			lastChanged, err := time.Parse(time.RFC3339, b.LastChangeTime)
-			if err == nil {
-				ageString = fmt.Sprintf(", touched %s", humanize.Time(lastChanged))
+			if err != nil {
+				klog.Warningf("Cannot parse last-change-time %q of #%d: %v", b.LastChangeTime, b.ID, err)
+			} else {
+				ageString = fmt.Sprintf(", changed *%s*", humanize.Time(lastChanged))
 			}
 
-			line := fmt.Sprintf("> %s [*%s* in *%s*] @ %s: %s – for *%s*%s", bugutil.GetBugURL(*b), b.Status, bugutil.FormatComponent(b.Component), b.AssignedTo, b.Summary, bugutil.FormatVersion(b.TargetRelease), ageString)
+			versionString := ""
+			if v := bugutil.FormatVersion(b.TargetRelease); v != "---" {
+				versionString = fmt.Sprintf(", *%s*", v)
+			}
+
+			line := fmt.Sprintf("> %s [*%s* in *%s*%s%s] @ %s: %s", bugutil.GetBugURL(*b), b.Status, bugutil.FormatComponent(b.Component), versionString, ageString, b.AssignedTo, b.Summary)
 
 			warnings := []string{}
 			if questionable[b.ID] {
