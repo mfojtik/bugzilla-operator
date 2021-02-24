@@ -181,10 +181,10 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			ageString := ""
 			lastChanged, err := time.Parse(time.RFC3339, b.LastChangeTime)
 			if err == nil {
-				ageString = fmt.Sprintf(" — touched %s", humanize.Time(lastChanged))
+				ageString = fmt.Sprintf(", touched %s", humanize.Time(lastChanged))
 			}
 
-			line := fmt.Sprintf("> %s [*%s*] @ %s: %s – in *%s* for *%s* %s", bugutil.GetBugURL(*b), b.Status, b.AssignedTo, b.Summary, bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.TargetRelease), ageString)
+			line := fmt.Sprintf("> %s [*%s* in *%s*] @ %s: %s – for *%s*%s", bugutil.GetBugURL(*b), b.Status, bugutil.FormatComponent(b.Component), b.AssignedTo, b.Summary, bugutil.FormatVersion(b.TargetRelease), ageString)
 
 			warnings := []string{}
 			if questionable[b.ID] {
@@ -220,7 +220,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 			}
 
 			if len(warnings) > 0 {
-				line = fmt.Sprintf("%s  — :warning: %s. Double check!", strings.Join(warnings, ". "))
+				line = fmt.Sprintf("%s  — :warning: %s. Double check!", line, strings.Join(warnings, ". "))
 			}
 
 			lines = append(lines, line)
