@@ -102,7 +102,7 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 	}
 
 	for _, c := range topFromComponents.byCount() {
-		if !components.Has(c.name) {
+		if components.Has(c.name) {
 			continue
 		}
 		result = append(result, fmt.Sprintf("* %s (%d bugs)\n", c.name, c.count))
