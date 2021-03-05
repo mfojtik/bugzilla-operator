@@ -105,12 +105,12 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 		if components.Has(c.name) {
 			continue
 		}
-		result = append(result, fmt.Sprintf("* %s (%d bugs)\n", c.name, c.count))
+		result = append(result, fmt.Sprintf("* %s (%d bugs)", c.name, c.count))
 	}
 
 	result = append(result, "*Components we moved bugs for last 7 days:*")
 	for _, c := range topToComponents.byCount() {
-		result = append(result, fmt.Sprintf("* %s (%d bugs)\n", c.name, c.count))
+		result = append(result, fmt.Sprintf("* %s (%d bugs)", c.name, c.count))
 	}
 
 	return strings.Join(result, "\n"), nil
