@@ -96,15 +96,21 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 		}
 	}
 
+	components := sets.NewString(config.Components.List()...)
 	result := []string{
-		"*Top Incoming Components this Week*:",
+		"*Components we received bugs from last 7 days*:",
 	}
+
 	for _, c := range topFromComponents.byCount() {
-		result = append(result, fmt.Sprintf("> %s (%d)\n", c.name, c.count))
+		if !components.Has(c.name) {
+			continue
+		}
+		result = append(result, fmt.Sprintf("* %s (%d bugs)\n", c.name, c.count))
 	}
-	result = append(result, "*Top Outgoing Components this Week:*")
+
+	result = append(result, "*Components we moved bugs for last 7 days:*")
 	for _, c := range topToComponents.byCount() {
-		result = append(result, fmt.Sprintf("> %s (%d)\n", c.name, c.count))
+		result = append(result, fmt.Sprintf("* %s (%d bugs)\n", c.name, c.count))
 	}
 
 	return strings.Join(result, "\n"), nil
