@@ -98,7 +98,7 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 
 	components := sets.NewString(config.Components.List()...)
 	result := []string{
-		"*Components we received bugs from last 7 days*:",
+		":arrow_down: *Components we get bugs from (last 7d)*:",
 	}
 
 	for _, c := range topFromComponents.byCount() {
@@ -108,7 +108,7 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 		result = append(result, fmt.Sprintf("* %s (%d bugs)", c.name, c.count))
 	}
 
-	result = append(result, "*Components we moved bugs for last 7 days:*")
+	result = append(result, ":arrow_right: *Components we reassign bugs to (last 7d):*")
 	for _, c := range topToComponents.byCount() {
 		result = append(result, fmt.Sprintf("* %s (%d bugs)", c.name, c.count))
 	}
