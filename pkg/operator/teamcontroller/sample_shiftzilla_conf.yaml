@@ -1,0 +1,38 @@
+---
+OrgTitle: Atomic / OpenShift
+Teams:
+  - name: API Server & Auth
+    lead: Stefan <@redhat.com>
+    managers:
+      - Wally  <@redhat.com>
+    group: Core OpenShift
+    components:
+      - Master
+      - apiserver-auth
+      - authentication
+      - service-ca
+      - openshift-apiserver
+      - oauth-apiserver
+      - kube-apiserver
+      - oauth-proxy
+      - kube-storage-version-migrator
+      - config-operator
+  - name: Workloads
+    lead: Maciej  <@redhat.com>
+    managers:
+      - Tomas  <@redhat.com>
+    group: Core OpenShift
+    components:
+      - Deployments
+      - Command Line Interface
+      - oc
+      - kube-controller-manager
+      - kube-scheduler
+  - name: etcd
+    lead: Sam  <@redhat.com>
+    managers:
+      - Wally  <wlewis@redhat.com>
+    group: Core OpenShift
+    components:
+      - Etcd
+      - Etcd Operator
