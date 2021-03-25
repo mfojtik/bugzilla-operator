@@ -1,0 +1,33 @@
+---
+-
+    pillar: Core Kubernetes
+    team: Pillar Lead
+    name: Michal Fojtik
+    timezone: Brno
+    role: Group Lead
+    email: mfojtik@redhat.com
+    github: mfojtik
+-
+    pillar: Core Kubernetes
+    team: API Server & Auth
+    name: Stefan Schimanski
+    timezone: Germany
+    role: Team Lead
+    email: sschiman@redhat.com
+    github: sttts
+-
+    pillar: Core Kubernetes
+    team: API Server & Auth
+    name: Stanislav Laznicka
+    timezone: CEST
+    role: 
+    email: slaznick@redhat.com
+    github: stlaz
+-
+    pillar: Core Kubernetes
+    team: API Server & Auth
+    name: David Eads
+    timezone: EST
+    role: 
+    email: deads@redhat.com
+    github: deads2k

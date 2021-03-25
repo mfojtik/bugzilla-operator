@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/teamcontroller"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
 	"github.com/google/go-github/v33/github"
@@ -71,6 +73,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			w.Reply(msg)
 		},
 	})
+
+	// Add who-is and who-owns commands
+	teamcontroller.AddSlackCommands(slackerInstance)
+
 	slackerInstance.DefaultCommand(func(req slacker.Request, w slacker.ResponseWriter) {
 		w.Reply("Unknown command")
 	})
