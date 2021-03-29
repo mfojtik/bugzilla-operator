@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/poststalecontroller"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
 	"github.com/google/go-github/v33/github"
@@ -99,6 +101,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
+		"stale-post":         poststalecontroller.NewPostStaleBugController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
