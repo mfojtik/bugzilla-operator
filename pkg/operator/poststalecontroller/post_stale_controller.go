@@ -64,7 +64,10 @@ func getNewBugs(client cache.BugzillaClient, c config.OperatorConfig) ([]*bugzil
 			"id",
 			"assigned_to",
 			"component",
+			"severity",
+			"priority",
 			"summary",
+			"status",
 		},
 	})
 }
