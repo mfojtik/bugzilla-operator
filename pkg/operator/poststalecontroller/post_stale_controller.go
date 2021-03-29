@@ -24,7 +24,7 @@ type PostStaleBugController struct {
 
 func NewPostStaleBugController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &PostStaleBugController{ctx, operatorConfig}
-	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("PostStaleBugController", recorder)
+	return factory.New().WithSync(c.sync).ResyncEvery(12*time.Hour).ToController("PostStaleBugController", recorder)
 }
 
 func (c *PostStaleBugController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
