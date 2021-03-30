@@ -71,6 +71,10 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 				errors = append(errors, fmt.Errorf("bug #%d querying github failed: %v", b.ID, err))
 				continue
 			}
+			// skip merged PR's
+			if pr.GetMerged() {
+				continue
+			}
 			result = append(result, fmt.Sprintf(">   :pull-request: [%s] <%s|%s> %s", pr.GetBase().GetRef(), pr.GetHTMLURL(), pr.GetTitle(), formatPullRequestLabels(pr.Labels)))
 		}
 	}
@@ -100,16 +104,20 @@ func formatPullRequestLabels(labels []*github.Label) string {
 			isOnHold = true
 		}
 	}
+	missingList := []string{}
 	if !isLgtm {
-		result = append(result, fmt.Sprintf(":warning: *waiting for lgtm*"))
+		missingList = append(missingList, fmt.Sprintf("**no lgtm**"))
 	}
 	if !isApproved {
-		result = append(result, fmt.Sprintf(":warning: *waiting for approval*"))
+		missingList = append(missingList, fmt.Sprintf("**not approved**"))
 	}
 	if isOnHold {
-		result = append(result, fmt.Sprintf(":warning: *on hold*"))
+		missingList = append(missingList, fmt.Sprintf("*on hold*"))
 	}
-	return strings.Join(result, " ")
+	if len(missingList) > 0 {
+		missingList = append([]string{":warning: "}, missingList...)
+	}
+	return strings.Join(append(result, missingList...), " ")
 }
 
 func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client, externalBugID string) (*github.PullRequest, error) {
