@@ -115,7 +115,7 @@ func formatPullRequestLabels(labels []*github.Label) string {
 func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client, externalBugID string) (*github.PullRequest, error) {
 	// format: openshift/openshift-apiserver/pull/188
 	parts := strings.Split(externalBugID, "/")
-	if len(parts) != 4 {
+	if len(parts) < 4 {
 		return nil, fmt.Errorf("wrong pull request format in external bug ID")
 	}
 	ghNumber, err := strconv.Atoi(parts[3])
