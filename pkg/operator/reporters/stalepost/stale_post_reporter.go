@@ -57,7 +57,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 	var errors []error
 
 	result := []string{
-		fmt.Sprintf("Found %d bugs in POST state for longer than 3 days:\n", len(bugs)),
+		fmt.Sprintf("Found %d bugs in POST state for **longer than 3 days**:\n", len(bugs)),
 	}
 
 	for _, b := range bugs {
@@ -106,10 +106,10 @@ func formatPullRequestLabels(labels []*github.Label) string {
 	}
 	missingList := []string{}
 	if !isLgtm {
-		missingList = append(missingList, fmt.Sprintf("**no lgtm**"))
+		missingList = append(missingList, fmt.Sprintf("*no lgtm*"))
 	}
 	if !isApproved {
-		missingList = append(missingList, fmt.Sprintf("**not approved**"))
+		missingList = append(missingList, fmt.Sprintf("*not approved*"))
 	}
 	if isOnHold {
 		missingList = append(missingList, fmt.Sprintf("*on hold*"))
