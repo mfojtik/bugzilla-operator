@@ -98,7 +98,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 
 	highBugs, errs := reportBugsBySeverity(ctx, ghClient, "high", bugs)
 	if len(highBugs) > 0 {
-		result = append(result, fmt.Sprintf(":parrotdad: Found %d HIGH priority bugs in POST state for *longer than 3 days*:\n", len(highBugs)))
+		result = append(result, fmt.Sprintf("\n\n:parrotdad: Found %d HIGH priority bugs in POST state for *longer than 3 days*:\n", len(highBugs)))
 		result = append(result, highBugs...)
 		errors = append(errors, errs...)
 	}
