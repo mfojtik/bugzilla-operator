@@ -116,7 +116,7 @@ func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client
 	// format: openshift/openshift-apiserver/pull/188
 	parts := strings.Split(externalBugID, "/")
 	if len(parts) < 4 {
-		return nil, fmt.Errorf("wrong pull request format in external bug ID")
+		return nil, fmt.Errorf("wrong pull request format in external bug ID (%q)", externalBugID)
 	}
 	ghNumber, err := strconv.Atoi(parts[3])
 	if err != nil {
