@@ -85,6 +85,9 @@ type OperatorConfig struct {
 	SlackChannel      string `yaml:"slackChannel"`
 	SlackAdminChannel string `yaml:"slackAdminChannel"`
 
+	// GithubToken is used to query PR's
+	GithubToken string `yaml:"githubToken"`
+
 	DisabledControllers []string `yaml:"disabledControllers"`
 
 	CachePath string `yaml:"cachePath"`

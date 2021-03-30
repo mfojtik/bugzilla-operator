@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/poststalecontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
@@ -101,7 +101,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
-		"stale-post":         poststalecontroller.NewPostStaleBugController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
@@ -133,6 +132,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			return upcomingsprint.NewUpcomingSprintReporter(controllerContext, components, when, cfg, recorder)
 		case "escalations":
 			return escalation.NewEscalationReporter(ctx, components, when, cfg, recorder)
+		case "post-stale":
+			return stalepost.NewStalePostReporter(ctx, when, cfg, recorder)
 		default:
 			return nil
 		}
