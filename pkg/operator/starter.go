@@ -270,6 +270,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					report, _, err := escalation.Report(ctx, client, nil, recorder, &cfg, cfg.Components.List())
 					return report, err
 				},
+				"post-stale": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					report, err := stalepost.Report(ctx, client, &cfg)
+					return report, err
+				},
 
 				// don't forget to also add new reports above in the trigger command
 			}
