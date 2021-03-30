@@ -142,13 +142,13 @@ func formatPullRequestLabels(labels []*github.Label) string {
 	}
 	missingList := []string{}
 	if !isLgtm {
-		missingList = append(missingList, fmt.Sprintf("*no lgtm*"))
+		missingList = append(missingList, fmt.Sprintf("`no lgtm`"))
 	}
 	if !isApproved {
-		missingList = append(missingList, fmt.Sprintf("*not approved*"))
+		missingList = append(missingList, fmt.Sprintf("`not approved`"))
 	}
 	if isOnHold {
-		missingList = append(missingList, fmt.Sprintf("*on hold*"))
+		missingList = append(missingList, fmt.Sprintf("`on hold`"))
 	}
 	if len(missingList) > 0 {
 		missingList = append([]string{" - "}, strings.Join(missingList, ","))
