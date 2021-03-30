@@ -77,7 +77,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 				continue
 			}
 			// skip merged PR's
-			if pr.GetMerged() {
+			if pr.GetMerged() || isWorkInProgress(pr.Labels) {
 				continue
 			}
 			result = append(result, fmt.Sprintf(">   :pull-request: [%s] <%s|%s> %s", pr.GetBase().GetRef(), pr.GetHTMLURL(), pr.GetTitle(), formatPullRequestLabels(pr.Labels)))
@@ -85,6 +85,18 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 	}
 
 	return strings.Join(result, "\n"), errutil.NewAggregate(errors)
+}
+
+func isWorkInProgress(labels []*github.Label) bool {
+	for _, l := range labels {
+		if l == nil {
+			continue
+		}
+		if l.GetName() == "do-not-merge/work-in-progress" {
+			return true
+		}
+	}
+	return false
 }
 
 func formatPullRequestLabels(labels []*github.Label) string {
