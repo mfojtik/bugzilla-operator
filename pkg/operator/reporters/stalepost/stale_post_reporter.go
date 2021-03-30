@@ -48,24 +48,13 @@ func (c *StalePostReporter) sync(ctx context.Context, syncCtx factory.SyncContex
 	return nil
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, config *config.OperatorConfig) (string, error) {
-	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.GithubToken})))
-	bugs, err := getNewBugs(client, config)
-	if err != nil {
-		return "", err
-	}
-
-	var errors []error
-
-	result := []string{
-		fmt.Sprintf("Found %d bugs in POST state for **longer than 3 days**:\n", len(bugs)),
-	}
-
-	sort.Slice(bugs, func(i, j int) bool {
-		return bugs[i].ID < bugs[j].ID
-	})
-
+func reportBugsBySeverity(ctx context.Context, ghClient *github.Client, sev string, bugs []*bugzilla.Bug) ([]string, []error) {
+	var result []string
+	var errors = []error{}
 	for _, b := range bugs {
+		if b.Severity != sev {
+			continue
+		}
 		result = append(result, bugutil.FormatBugMessage(*b))
 		for _, e := range b.ExternalBugs {
 			if e.Type.Type != "GitHub" {
@@ -82,6 +71,36 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 			}
 			result = append(result, fmt.Sprintf(">   :pull-request: [%s] <%s|%s> %s", pr.GetBase().GetRef(), pr.GetHTMLURL(), pr.GetTitle(), formatPullRequestLabels(pr.Labels)))
 		}
+	}
+	return result, errors
+}
+
+func Report(ctx context.Context, client cache.BugzillaClient, config *config.OperatorConfig) (string, error) {
+	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.GithubToken})))
+	bugs, err := getNewBugs(client, config)
+	if err != nil {
+		return "", err
+	}
+
+	var errors []error
+	sort.Slice(bugs, func(i, j int) bool {
+		return bugs[i].ID < bugs[j].ID
+	})
+
+	result := []string{}
+
+	urgentBugs, errs := reportBugsBySeverity(ctx, ghClient, "urgent", bugs)
+	if len(urgentBugs) > 0 {
+		result = append(result, fmt.Sprintf(":alert-siren: Found %d URGENT priority bugs in POST state for *longer than 3 days*:\n", len(urgentBugs)))
+		result = append(result, urgentBugs...)
+		errors = append(errors, errs...)
+	}
+
+	highBugs, errs := reportBugsBySeverity(ctx, ghClient, "high", bugs)
+	if len(highBugs) > 0 {
+		result = append(result, fmt.Sprintf(":parrotdad: Found %d HIGH priority bugs in POST state for *longer than 3 days*:\n", len(highBugs)))
+		result = append(result, highBugs...)
+		errors = append(errors, errs...)
 	}
 
 	return strings.Join(result, "\n"), errutil.NewAggregate(errors)
@@ -132,9 +151,9 @@ func formatPullRequestLabels(labels []*github.Label) string {
 		missingList = append(missingList, fmt.Sprintf("*on hold*"))
 	}
 	if len(missingList) > 0 {
-		missingList = append([]string{":warning: "}, missingList...)
+		missingList = append([]string{" - "}, strings.Join(missingList, ","))
 	}
-	return strings.Join(append(result, strings.Join(missingList, ",")), " ")
+	return strings.Join(append(result, missingList...), " ")
 }
 
 func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client, externalBugID string) (*github.PullRequest, error) {
