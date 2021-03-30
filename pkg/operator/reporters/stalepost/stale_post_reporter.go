@@ -3,6 +3,7 @@ package stalepost
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -59,6 +60,10 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 	result := []string{
 		fmt.Sprintf("Found %d bugs in POST state for **longer than 3 days**:\n", len(bugs)),
 	}
+
+	sort.Slice(bugs, func(i, j int) bool {
+		return bugs[i].ID < bugs[j].ID
+	})
 
 	for _, b := range bugs {
 		result = append(result, bugutil.FormatBugMessage(*b))
