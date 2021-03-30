@@ -11,7 +11,6 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/eparis/bugzilla"
 	"github.com/google/go-github/v33/github"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -77,7 +76,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		w.Reply("Unknown command")
 	})
 
-	recorder.Eventf("OperatorStarted", "Bugzilla Operator Started\n\n```\n%s\n```\n", spew.Sdump(cfg.Anonymize()))
+	recorder.Eventf("OperatorRestarted", "Bugzilla Operator Started\n")
 
 	// Setup unfurl handlers
 	if err := unfurl.UnfurlBugzillaLinks(slackerInstance, slackClient, newAnonymousBugzillaClient(slackAdminClient)(false)); err != nil {

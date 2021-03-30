@@ -134,7 +134,7 @@ func formatPullRequestLabels(labels []*github.Label) string {
 	if len(missingList) > 0 {
 		missingList = append([]string{":warning: "}, missingList...)
 	}
-	return strings.Join(append(result, missingList...), " ")
+	return strings.Join(append(result, strings.Join(missingList, ",")), " ")
 }
 
 func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client, externalBugID string) (*github.PullRequest, error) {
