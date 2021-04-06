@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"golang.org/x/oauth2"
 	errutil "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
@@ -34,7 +35,8 @@ func NewStalePostReporter(ctx controller.ControllerContext, schedule []string, o
 func (c *StalePostReporter) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
-	report, err := Report(ctx, client, &c.config)
+	urgentOnlyCtx := context.WithValue(ctx, "urgent", true)
+	report, err := Report(urgentOnlyCtx, client, &c.config)
 	if err != nil {
 		return err
 	}
@@ -52,6 +54,7 @@ func reportBugsBySeverity(ctx context.Context, ghClient *github.Client, sev stri
 	var result []string
 	var errors = []error{}
 	for _, b := range bugs {
+		bugPrNumbers := sets.NewInt()
 		if b.Severity != sev {
 			continue
 		}
@@ -65,6 +68,11 @@ func reportBugsBySeverity(ctx context.Context, ghClient *github.Client, sev stri
 				errors = append(errors, fmt.Errorf("bug #%d querying github failed: %v", b.ID, err))
 				continue
 			}
+			// TODO: For some reason bugzilla sometimes report a single PR twice
+			if bugPrNumbers.Has(pr.GetNumber()) {
+				continue
+			}
+			bugPrNumbers.Insert(pr.GetNumber())
 			// skip merged PR's
 			if pr.GetMerged() || isWorkInProgress(pr.Labels) {
 				continue
@@ -89,6 +97,8 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 
 	result := []string{}
 
+	urgentOnly := ctx.Value("urgent").(bool)
+
 	urgentBugs, errs := reportBugsBySeverity(ctx, ghClient, "urgent", bugs)
 	if len(urgentBugs) > 0 {
 		result = append(result, fmt.Sprintf(":alert-siren: Found %d URGENT priority bugs in POST state for *longer than 3 days*:\n", len(urgentBugs)))
@@ -96,11 +106,13 @@ func Report(ctx context.Context, client cache.BugzillaClient, config *config.Ope
 		errors = append(errors, errs...)
 	}
 
-	highBugs, errs := reportBugsBySeverity(ctx, ghClient, "high", bugs)
-	if len(highBugs) > 0 {
-		result = append(result, fmt.Sprintf("\n\n:parrotdad: Found %d HIGH priority bugs in POST state for *longer than 3 days*:\n", len(highBugs)))
-		result = append(result, highBugs...)
-		errors = append(errors, errs...)
+	if !urgentOnly {
+		highBugs, errs := reportBugsBySeverity(ctx, ghClient, "high", bugs)
+		if len(highBugs) > 0 {
+			result = append(result, fmt.Sprintf("\n\n:parrotdad: Found %d HIGH priority bugs in POST state for *longer than 3 days*:\n", len(highBugs)))
+			result = append(result, highBugs...)
+			errors = append(errors, errs...)
+		}
 	}
 
 	return strings.Join(result, "\n"), errutil.NewAggregate(errors)

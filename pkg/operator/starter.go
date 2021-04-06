@@ -273,6 +273,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					report, err := stalepost.Report(ctx, client, &cfg)
 					return report, err
 				},
+				"post-stale-urgent": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					urgentCtx := context.WithValue(ctx, "urgent", true)
+					report, err := stalepost.Report(urgentCtx, client, &cfg)
+					return report, err
+				},
 
 				// don't forget to also add new reports above in the trigger command
 			}
