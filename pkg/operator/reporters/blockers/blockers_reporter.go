@@ -167,7 +167,7 @@ func getBugsQuery(config *config.OperatorConfig, components []string, targetRele
 
 func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, *bugSummary, []*bugzilla.Bug, error) {
 	allReleasesQuery := getBugsQuery(config, components, append([]string{"---"}, config.Release.TargetReleases...))
-	currentReleaseQeury := getBugsQuery(config, components, append([]string{"---"}, config.Release.CurrentTargetRelease))
+	currentReleaseQeury := getBugsQuery(config, components, []string{config.Release.CurrentTargetRelease})
 
 	bugs, err := client.Search(allReleasesQuery)
 	if err != nil {
