@@ -26,7 +26,7 @@ func NewTagController(ctx controller.ControllerContext, operatorConfig config.Op
 		ControllerContext: ctx,
 		config:            operatorConfig,
 	}
-	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("TagController", recorder)
+	return factory.New().WithSync(c.sync).ResyncEvery(3*time.Hour).ToController("TagController", recorder)
 }
 
 func (c *TagController) sync(ctx context.Context, context factory.SyncContext) error {
@@ -52,24 +52,24 @@ func (c *TagController) sync(ctx context.Context, context factory.SyncContext) e
 	}
 
 	tagCounter := 0
+	messages := []string{}
 	for bugID, update := range bugsToUpdate {
-		// remove if we are ready to update bugs
-		/*
-			if err := client.UpdateBug(bugID, update); err != nil {
-				context.Recorder().Warningf("BugUpdateFailed", fmt.Sprintf("Failed to tag bug %s: %v", bugID, err))
-				continue
-			}
-		*/
-		slackClient.MessageAdminChannel(fmt.Sprintf("Bug #%s tagged as %s", bugutil.GetBugURL(bugzilla.Bug{ID: bugID}), update.Whiteboard))
+		if err := client.UpdateBug(bugID, update); err != nil {
+			context.Recorder().Warningf("BugUpdateFailed", fmt.Sprintf("Failed to tag bug %s: %v", bugID, err))
+			continue
+		}
+		messages = append(messages, fmt.Sprintf("> Bug %s tagged as *%s*", bugutil.GetBugURL(bugzilla.Bug{ID: bugID}), update.Whiteboard))
 		tagCounter++
 	}
 
-	return slackClient.MessageAdminChannel(fmt.Sprintf("%d bugs tagged", tagCounter))
+	return slackClient.MessageAdminChannel(fmt.Sprintf("%d bugs tagged:\n\n%s", tagCounter, strings.Join(messages, "\n")))
 }
 
 func (c *TagController) handleBug(bug *bugzilla.Bug, comments []bugzilla.Comment) *bugzilla.BugUpdate {
 	// if bug title contains "[sig-" it indicates a CI/test issues
-	if strings.Contains(bug.Summary, "[sig-") {
+	if strings.Contains(bug.Summary, "[sig-") ||
+		strings.Contains(bug.Summary, "[Suite") ||
+		strings.Contains(bug.Whiteboard, "buildcop") {
 		return tagUpdate("tag-ci", bug.Whiteboard)
 	}
 
