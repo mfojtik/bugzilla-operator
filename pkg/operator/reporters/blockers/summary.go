@@ -27,8 +27,15 @@ type bugSummary struct {
 	staleCount          int
 	priorityCount       map[string]int
 	severityCount       map[string]int
-	currentReleaseCount int
-	ciBugsCount         int
+	withCustomerCase    int
+
+	currentReleaseCount             int
+	currentReleaseCustomerCaseCount int
+	currentReleaseCICount           int
+
+	noTargetReleaseCount int
+
+	ciBugsCount int
 }
 
 func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummary {
@@ -43,6 +50,10 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			if keywords.Has(keyword) {
 				r.serious[keyword] = append(r.serious[keyword], bug.ID)
 			}
+		}
+
+		if hasActiveCustomerCase(bug) {
+			r.withCustomerCase++
 		}
 
 		if strings.Contains(bug.Whiteboard, "tag-ci") {
@@ -65,8 +76,12 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 		}
 
 		targetRelease := "---"
+
 		if len(bug.TargetRelease) > 0 {
 			targetRelease = bug.TargetRelease[0]
+		}
+		if targetRelease == "---" {
+			r.noTargetReleaseCount++
 		}
 
 		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
@@ -84,12 +99,27 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			r.toTriage = append(r.toTriage, bug.ID)
 		}
 
-		if targetRelease == currentTargetRelease || targetRelease == "---" {
+		if targetRelease == currentTargetRelease {
+			if strings.Contains(bug.Whiteboard, "tag-ci") {
+				r.currentReleaseCICount++
+			}
+			if hasActiveCustomerCase(bug) {
+				r.currentReleaseCustomerCaseCount++
+			}
 			r.currentReleaseCount++
 		}
 	}
 
 	return r
+}
+
+func hasActiveCustomerCase(b *bugzilla.Bug) bool {
+	for _, eb := range b.ExternalBugs {
+		if eb.Type.Type == "SFDC" && eb.ExternalStatus != "Closed" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasFlag(bug *bugzilla.Bug, name, value string) bool {
