@@ -241,12 +241,12 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
 
 	lines := []string{
-		fmt.Sprintf("> All active (all releases) bugs: <%s|%d>", allReleasesQueryURL.String(), activeBugsCount),
-		fmt.Sprintf("> All active %s bugs: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount),
-		fmt.Sprintf("> Bugs tagged as CI bugs: <%s|%d>", ciBugsQueryURL.String(), summary.ciBugsCount),
+		fmt.Sprintf("> All Releases Bugs: <%s|%d> (<%s|%d> CI, %d customer case)", allReleasesQueryURL.String(), activeBugsCount, ciBugsQueryURL.String(), summary.ciBugsCount, summary.withCustomerCase),
+		fmt.Sprintf("> All Current (**%s**) Release Bugs: <%s|%d> (%d CI, %d customer case)", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount, summary.currentReleaseCICount, summary.currentReleaseCustomerCaseCount),
+		fmt.Sprintf("> "),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
-		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
+		fmt.Sprintf("> Bugs with no activity for more than 30d: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
 	}
 
 	for keyword, ids := range summary.serious {
