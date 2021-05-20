@@ -260,7 +260,8 @@ func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery 
 		summary.ciBugsCount,
 		customerBugsQueryURL.String(),
 		summary.withCustomerCase,
-		otherBugsQuery(allReleasesQuery).String(),
+		//otherBugsQuery(allReleasesQuery).String(),
+		"",
 		bugsCount-summary.ciBugsCount-summary.withCustomerCase,
 	)
 }
@@ -302,7 +303,8 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 		summary.currentReleaseCICount,
 		customerBugsQueryURL.String(),
 		summary.currentReleaseCustomerCaseCount,
-		otherBugsQuery(currReleaseQuery).String(),
+		//otherBugsQuery(currReleaseQuery).String(),
+		"",
 		summary.currentReleaseCount-summary.currentReleaseCustomerCaseCount-summary.currentReleaseCustomerCaseCount)
 }
 
