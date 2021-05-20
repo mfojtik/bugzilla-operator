@@ -275,7 +275,7 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 	}
 	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
 
-	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer case, %d other)_",
+	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, %d other)_",
 		targetRelease,
 		currentReleaseQueryURL.String(),
 		summary.currentReleaseCount,
