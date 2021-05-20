@@ -208,6 +208,24 @@ func (c *BlockersReporter) sendAdminDebugStats(slackClient slack.ChannelClient, 
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
 }
 
+func otherBugsQuery(q bugzilla.Query) *url.URL {
+	result := q
+	result.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "external_bugzilla.description",
+			Op:    "notsubstring",
+			Value: "Red Hat Customer Portal",
+		},
+		{
+			Field: "status_whiteboard",
+			Op:    "notsubstring",
+			Value: "tag-ci",
+		},
+	}
+	u, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + result.Values().Encode())
+	return u
+}
+
 func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery bugzilla.Query) string {
 	allReleasesQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + allReleasesQuery.Values().Encode())
 	ciBugsQuery := allReleasesQuery
@@ -235,13 +253,14 @@ func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery 
 	}
 	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
 
-	return fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, %d other)_",
+	return fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, <%s|%d> other)_",
 		allReleasesQueryURL.String(),
 		bugsCount,
 		ciBugsQueryURL.String(),
 		summary.ciBugsCount,
 		customerBugsQueryURL.String(),
 		summary.withCustomerCase,
+		otherBugsQuery(allReleasesQuery).String(),
 		bugsCount-summary.ciBugsCount-summary.withCustomerCase,
 	)
 }
@@ -275,7 +294,7 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 	}
 	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
 
-	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, %d other)_",
+	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, <%s|%d> other)_",
 		targetRelease,
 		currentReleaseQueryURL.String(),
 		summary.currentReleaseCount,
@@ -283,6 +302,7 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 		summary.currentReleaseCICount,
 		customerBugsQueryURL.String(),
 		summary.currentReleaseCustomerCaseCount,
+		otherBugsQuery(currReleaseQuery).String(),
 		summary.currentReleaseCount-summary.currentReleaseCustomerCaseCount-summary.currentReleaseCustomerCaseCount)
 }
 
