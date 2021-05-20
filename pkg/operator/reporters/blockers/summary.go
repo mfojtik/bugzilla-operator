@@ -28,6 +28,7 @@ type bugSummary struct {
 	priorityCount       map[string]int
 	severityCount       map[string]int
 	currentReleaseCount int
+	ciBugsCount         int
 }
 
 func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummary {
@@ -42,6 +43,10 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			if keywords.Has(keyword) {
 				r.serious[keyword] = append(r.serious[keyword], bug.ID)
 			}
+		}
+
+		if bug.Classification == "ci" {
+			r.ciBugsCount++
 		}
 
 		if strings.Contains(bug.Whiteboard, "LifecycleStale") {
