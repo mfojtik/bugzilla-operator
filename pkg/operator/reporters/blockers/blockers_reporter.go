@@ -157,6 +157,8 @@ func getBugsQuery(config *config.OperatorConfig, components []string, targetRele
 			"severity",
 			"priority",
 			"target_release",
+			"cf_cust_facing",
+			"external_bugs",
 			"whiteboard",
 			"flags",
 		},
