@@ -208,7 +208,85 @@ func (c *BlockersReporter) sendAdminDebugStats(slackClient slack.ChannelClient, 
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
 }
 
-func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSummary, allReleasesQuery, currentReleaseQuery bugzilla.Query) []string {
+func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery bugzilla.Query) string {
+	allReleasesQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + allReleasesQuery.Values().Encode())
+	ciBugsQuery := allReleasesQuery
+	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "status_whiteboard",
+			Op:    "substring",
+			Value: "tag-ci",
+		},
+	}
+	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
+
+	customerQuery := allReleasesQuery
+	customerQuery.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "ext_bz_bug_map.ext_status",
+			Op:    "notequals",
+			Value: "Closed",
+		},
+		{
+			Field: "external_bugzilla.description",
+			Op:    "substring",
+			Value: "Red Hat Customer Portal",
+		},
+	}
+	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
+
+	return fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, %d other)_",
+		allReleasesQueryURL.String(),
+		bugsCount,
+		ciBugsQueryURL.String(),
+		summary.ciBugsCount,
+		customerBugsQueryURL.String(),
+		summary.withCustomerCase,
+		bugsCount-summary.ciBugsCount-summary.withCustomerCase,
+	)
+}
+
+func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currReleaseQuery bugzilla.Query) string {
+	currentReleaseQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + currReleaseQuery.Values().Encode())
+	ciBugsQuery := currReleaseQuery
+	ciBugsQuery.TargetRelease = []string{targetRelease}
+	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "status_whiteboard",
+			Op:    "substring",
+			Value: "tag-ci",
+		},
+	}
+	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
+
+	customerQuery := currReleaseQuery
+	customerQuery.TargetRelease = []string{targetRelease}
+	customerQuery.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "ext_bz_bug_map.ext_status",
+			Op:    "notequals",
+			Value: "Closed",
+		},
+		{
+			Field: "external_bugzilla.description",
+			Op:    "substring",
+			Value: "Red Hat Customer Portal",
+		},
+	}
+	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
+
+	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer case, %d other)_",
+		targetRelease,
+		currentReleaseQueryURL.String(),
+		summary.currentReleaseCount,
+		ciBugsQueryURL.String(),
+		summary.currentReleaseCICount,
+		customerBugsQueryURL.String(),
+		summary.currentReleaseCustomerCaseCount,
+		summary.currentReleaseCount-summary.currentReleaseCustomerCaseCount-summary.currentReleaseCustomerCaseCount)
+}
+
+func getStatsForChannel(targetRelease string, bugsCount int, summary bugSummary, allReleasesQuery, currentReleaseQuery bugzilla.Query) []string {
 	sortedPrioNames := []string{
 		"urgent",
 		"high",
@@ -229,22 +307,9 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 		}
 	}
 
-	ciBugsQuery := allReleasesQuery
-	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
-		{
-			Field: "status_whiteboard",
-			Op:    "substring",
-			Value: "tag-ci",
-		},
-	}
-
-	allReleasesQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + allReleasesQuery.Values().Encode())
-	currentReleaseQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + currentReleaseQuery.Values().Encode())
-	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
-
 	lines := []string{
-		fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, %d customer case)_", allReleasesQueryURL.String(), activeBugsCount, ciBugsQueryURL.String(), summary.ciBugsCount, summary.withCustomerCase),
-		fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(%d CI, %d customer case)_", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount, summary.currentReleaseCICount, summary.currentReleaseCustomerCaseCount),
+		getAllReleasesBugStats(bugsCount, summary, allReleasesQuery),
+		getCurrentReleaseBugStats(targetRelease, summary, currentReleaseQuery),
 		fmt.Sprintf("> Bugs without target release: %d", summary.noTargetReleaseCount),
 		fmt.Sprintf("> "),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
