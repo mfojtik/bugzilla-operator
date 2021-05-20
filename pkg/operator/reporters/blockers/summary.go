@@ -45,7 +45,7 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			}
 		}
 
-		if bug.Classification == "ci" {
+		if strings.Contains(bug.Whiteboard, "tag-ci") {
 			r.ciBugsCount++
 		}
 

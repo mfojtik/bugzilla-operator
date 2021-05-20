@@ -173,19 +173,6 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		return "", nil, nil, err
 	}
 
-	// list the bug comments and look for links to our CI system
-	// if the link is found, use the classification field (not used) to mark the bug as CI
-	for i := range bugs {
-		comments, err := client.GetCachedBugComments(bugs[i].ID, bugs[i].LastChangeTime)
-		if err != nil {
-			recorder.Warningf("BugCommentFailed", fmt.Sprintf("Unable to get bug %q comments: %v", bugs[i].ID, err))
-			continue
-		}
-		if hasLinkToCI(bugs[i], comments) {
-			bugs[i].Classification = "ci"
-		}
-	}
-
 	summary := summarizeBugs(config.Release.CurrentTargetRelease, bugs...)
 	channelStats := getStatsForChannel(
 		config.Release.CurrentTargetRelease,
@@ -219,22 +206,6 @@ func (c *BlockersReporter) sendAdminDebugStats(slackClient slack.ChannelClient, 
 	slackClient.MessageAdminChannel(strings.Join(messages, "\n"))
 }
 
-func hasLinkToCI(bug *bugzilla.Bug, comments []bugzilla.Comment) bool {
-	switch {
-	case strings.Contains(bug.Summary, "[sig-"):
-		return true
-	}
-	for i := range comments {
-		switch {
-		case strings.Contains(comments[i].Text, "prow.svc.ci.openshift.org"),
-			strings.Contains(comments[i].Text, "storage.googleapis.com/origin-ci-test"),
-			strings.Contains(comments[i].Text, "search.ci.openshift.org"):
-			return true
-		}
-	}
-	return false
-}
-
 func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSummary, allReleasesQuery, currentReleaseQuery bugzilla.Query) []string {
 	sortedPrioNames := []string{
 		"urgent",
@@ -256,13 +227,23 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 		}
 	}
 
+	ciBugsQuery := allReleasesQuery
+	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
+		{
+			Field: "whiteboard",
+			Op:    "substring",
+			Value: "tag-ci",
+		},
+	}
+
 	allReleasesQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + allReleasesQuery.Values().Encode())
 	currentReleaseQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + currentReleaseQuery.Values().Encode())
+	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
 
 	lines := []string{
-		fmt.Sprintf("> All active 4.x and 3.11 Bugs: <%s|%d>", allReleasesQueryURL.String(), activeBugsCount),
-		fmt.Sprintf("> All active %s Bugs: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount),
-		fmt.Sprintf("> Bugs with links to CI system: %d", summary.ciBugsCount),
+		fmt.Sprintf("> All active (all releases) bugs: <%s|%d>", allReleasesQueryURL.String(), activeBugsCount),
+		fmt.Sprintf("> All active %s bugs: <%s|%d>", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount),
+		fmt.Sprintf("> Bugs tagged as CI bugs: <%s|%d>", ciBugsQueryURL.String(), summary.ciBugsCount),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
 		fmt.Sprintf("> Bugs Marked as _LifecycleStale_: <https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=openshift-group-b-lifecycle-stale&sharer_id=290313|%d>", summary.staleCount),
