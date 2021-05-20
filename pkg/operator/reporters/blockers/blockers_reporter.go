@@ -230,7 +230,7 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 	ciBugsQuery := allReleasesQuery
 	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
 		{
-			Field: "whiteboard",
+			Field: "status_whiteboard",
 			Op:    "substring",
 			Value: "tag-ci",
 		},
