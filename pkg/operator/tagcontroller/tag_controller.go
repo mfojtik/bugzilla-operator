@@ -62,6 +62,10 @@ func (c *TagController) sync(ctx context.Context, context factory.SyncContext) e
 		tagCounter++
 	}
 
+	if tagCounter == 0 {
+		return nil
+	}
+
 	return slackClient.MessageAdminChannel(fmt.Sprintf("%d bugs tagged:\n\n%s", tagCounter, strings.Join(messages, "\n")))
 }
 

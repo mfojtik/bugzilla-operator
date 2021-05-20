@@ -241,8 +241,9 @@ func getStatsForChannel(targetRelease string, activeBugsCount int, summary bugSu
 	ciBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + ciBugsQuery.Values().Encode())
 
 	lines := []string{
-		fmt.Sprintf("> All Releases Bugs: <%s|%d> (<%s|%d> CI, %d customer case)", allReleasesQueryURL.String(), activeBugsCount, ciBugsQueryURL.String(), summary.ciBugsCount, summary.withCustomerCase),
-		fmt.Sprintf("> All Current (**%s**) Release Bugs: <%s|%d> (%d CI, %d customer case)", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount, summary.currentReleaseCICount, summary.currentReleaseCustomerCaseCount),
+		fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, %d customer case)_", allReleasesQueryURL.String(), activeBugsCount, ciBugsQueryURL.String(), summary.ciBugsCount, summary.withCustomerCase),
+		fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(%d CI, %d customer case)_", targetRelease, currentReleaseQueryURL.String(), summary.currentReleaseCount, summary.currentReleaseCICount, summary.currentReleaseCustomerCaseCount),
+		fmt.Sprintf("> Bugs without target release: %d", summary.noTargetReleaseCount),
 		fmt.Sprintf("> "),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
