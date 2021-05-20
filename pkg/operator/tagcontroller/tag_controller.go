@@ -52,7 +52,6 @@ func (c *TagController) sync(ctx context.Context, context factory.SyncContext) e
 	}
 
 	tagCounter := 0
-
 	for bugID, update := range bugsToUpdate {
 		// remove if we are ready to update bugs
 		/*
@@ -87,10 +86,13 @@ func (c *TagController) handleBug(bug *bugzilla.Bug, comments []bugzilla.Comment
 }
 
 func tagUpdate(name string, whiteboard string) *bugzilla.BugUpdate {
-	return &bugzilla.BugUpdate{
-		Whiteboard:  WithKeyword(whiteboard, name),
-		MinorUpdate: true,
+	if newWhiteboard := WithKeyword(whiteboard, name); newWhiteboard != whiteboard {
+		return &bugzilla.BugUpdate{
+			Whiteboard:  newWhiteboard,
+			MinorUpdate: true,
+		}
 	}
+	return nil
 }
 
 func WithKeyword(wb string, kwd string) string {
