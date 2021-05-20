@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/tagcontroller"
+
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
 
 	"github.com/eparis/bugzilla"
@@ -100,6 +102,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
+		"tag":                tagcontroller.NewTagController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
