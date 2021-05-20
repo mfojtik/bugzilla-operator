@@ -261,7 +261,7 @@ func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery 
 		customerBugsQueryURL.String(),
 		summary.withCustomerCase,
 		//otherBugsQuery(allReleasesQuery).String(),
-		"",
+		"https://TODO",
 		bugsCount-summary.ciBugsCount-summary.withCustomerCase,
 	)
 }
@@ -304,7 +304,7 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 		customerBugsQueryURL.String(),
 		summary.currentReleaseCustomerCaseCount,
 		//otherBugsQuery(currReleaseQuery).String(),
-		"",
+		"https://TODO",
 		summary.currentReleaseCount-summary.currentReleaseCustomerCaseCount-summary.currentReleaseCustomerCaseCount)
 }
 
