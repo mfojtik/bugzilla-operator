@@ -40,14 +40,19 @@ func New(ctx controller.ControllerContext) *Controller {
 
 // newIdea parse the description given in slack message and check the format is right.
 // then it returns idea title and clarification.
-func newIdeaFromDescription(s string) (*Idea, error) {
-	parts := strings.SplitN(s, "because", 1)
-	if len(parts) != 2 {
+func newIdeaFromDescription(s, team string) (*Idea, error) {
+	msgParts := strings.SplitN(s, team, 1)
+	if len(msgParts) != 2 {
 		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability' (%q)", s)
 	}
+	ideaParts := strings.SplitN(msgParts[1], "because", 1)
+	if len(ideaParts) != 2 {
+		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability' (%q)", s)
+	}
+
 	return &Idea{
-		Title:         strings.TrimSpace(parts[0]),
-		Clarification: strings.TrimSpace(parts[1]),
+		Title:         strings.TrimSpace(ideaParts[0]),
+		Clarification: strings.TrimSpace(ideaParts[1]),
 		Timestamp:     time.Now(),
 	}, nil
 }
@@ -103,13 +108,13 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 				w.Reply(":warning: The team name must be specified", replyInThread)
 				return
 			}
-			description := req.StringParam("description", "")
+			description := req.Event().Text
 			if len(description) == 0 {
 				w.Reply(":warning: Description must be specified", replyInThread)
 				return
 			}
 
-			idea, err := newIdeaFromDescription(description)
+			idea, err := newIdeaFromDescription(description, teamName)
 			if err != nil {
 				w.Reply(fmt.Sprintf(":warning: %v", err), replyInThread)
 				return
