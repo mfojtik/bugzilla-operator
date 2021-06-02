@@ -39,11 +39,11 @@ func New(ctx controller.ControllerContext) *Controller {
 }
 
 func parseIdea(s string) (*Idea, error) {
-	msgParts := strings.SplitN(s, " ", 1)
+	msgParts := strings.SplitN(s, " ", 2)
 	if len(msgParts) != 2 {
-		return nil, fmt.Errorf("the description must contain 'team'. (%q)", s)
+		return nil, fmt.Errorf("the description must contain 'team'. (%q %#v)", s, msgParts)
 	}
-	ideaParts := strings.SplitN(msgParts[1], "because", 1)
+	ideaParts := strings.SplitN(msgParts[1], "because", 2)
 	if len(ideaParts) != 2 {
 		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability' (%q)", s)
 	}
