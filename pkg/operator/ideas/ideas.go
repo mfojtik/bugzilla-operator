@@ -43,7 +43,7 @@ func New(ctx controller.ControllerContext) *Controller {
 func newIdeaFromDescription(s string) (*Idea, error) {
 	parts := strings.SplitN(s, "because", 1)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability'")
+		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability' (%q)", s)
 	}
 	return &Idea{
 		Title:         strings.TrimSpace(parts[0]),
