@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/ideas"
+
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/tagcontroller"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
@@ -108,6 +110,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
 		"needinfo":           needinfocontroller.NewNeedInfoController(controllerContext, cfg, recorder),
 	}
+
+	ideasController := ideas.New(controllerContext)
+	ideasController.AddCommands(slackerInstance)
 
 	// TODO: enable by default
 	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")

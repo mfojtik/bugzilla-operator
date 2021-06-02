@@ -43,7 +43,7 @@ func (c *TagController) sync(ctx context.Context, context factory.SyncContext) e
 	for i := range result {
 		comments, err := client.GetCachedBugComments(result[i].ID, result[i].LastChangeTime)
 		if err != nil {
-			context.Recorder().Warningf("GetBugComments", fmt.Sprintf("Failed to get commments for bug %s: %v", result[i].ID, err))
+			context.Recorder().Warningf("GetBugComments", fmt.Sprintf("Failed to get commments for bug %d: %v", result[i].ID, err))
 			continue
 		}
 		if update := c.handleBug(result[i], comments); update != nil {
@@ -55,7 +55,7 @@ func (c *TagController) sync(ctx context.Context, context factory.SyncContext) e
 	messages := []string{}
 	for bugID, update := range bugsToUpdate {
 		if err := client.UpdateBug(bugID, update); err != nil {
-			context.Recorder().Warningf("BugUpdateFailed", fmt.Sprintf("Failed to tag bug %s: %v", bugID, err))
+			context.Recorder().Warningf("BugUpdateFailed", fmt.Sprintf("Failed to tag bug %d: %v", bugID, err))
 			continue
 		}
 		messages = append(messages, fmt.Sprintf("> Bug %s tagged as *%s*", bugutil.GetBugURL(bugzilla.Bug{ID: bugID}), update.Whiteboard))
