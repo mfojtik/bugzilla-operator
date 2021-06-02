@@ -38,12 +38,10 @@ func New(ctx controller.ControllerContext) *Controller {
 	return &Controller{ctx: ctx}
 }
 
-// newIdea parse the description given in slack message and check the format is right.
-// then it returns idea title and clarification.
-func newIdeaFromDescription(s, team string) (*Idea, error) {
-	msgParts := strings.SplitN(s, team, 1)
+func parseIdea(s string) (*Idea, error) {
+	msgParts := strings.SplitN(s, " ", 1)
 	if len(msgParts) != 2 {
-		return nil, fmt.Errorf("the description must contain 'team'. (%q)", team)
+		return nil, fmt.Errorf("the description must contain 'team'. (%q)", s)
 	}
 	ideaParts := strings.SplitN(msgParts[1], "because", 1)
 	if len(ideaParts) != 2 {
@@ -51,6 +49,7 @@ func newIdeaFromDescription(s, team string) (*Idea, error) {
 	}
 
 	return &Idea{
+		Team:          msgParts[0],
 		Title:         strings.TrimSpace(ideaParts[0]),
 		Clarification: strings.TrimSpace(ideaParts[1]),
 		Timestamp:     time.Now(),
@@ -103,29 +102,23 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 	s.Command("idea-for-team <team> <description>", &slacker.CommandDefinition{
 		Description: "Record an idea for given team. Ideas will be triaged during planning meeting. Description must contain the 'because' word.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
-			teamName := req.StringParam("team", "")
-			if len(teamName) == 0 {
-				w.Reply(":warning: The team name must be specified", replyInThread)
-				return
-			}
-			description := req.Event().Text
+			description := req.StringParam("team", "")
 			if len(description) == 0 {
 				w.Reply(":warning: Description must be specified", replyInThread)
 				return
 			}
 
-			idea, err := newIdeaFromDescription(description, teamName)
+			idea, err := parseIdea(description)
 			if err != nil {
 				w.Reply(fmt.Sprintf(":warning: %v", err), replyInThread)
 				return
 			}
-			idea.Team = teamName
 			idea.From = req.Event().User
 			if err := c.addToList(context.TODO(), idea); err != nil {
 				w.Reply(fmt.Sprintf(":warning: unable to persist idea: %v", err), replyInThread)
 				return
 			}
-			w.Reply(fmt.Sprintf(":good_idea: idea was added to team %s list", teamName))
+			w.Reply(fmt.Sprintf(":good_idea: idea was added to team %s list", idea.Team))
 			return
 		},
 	})
