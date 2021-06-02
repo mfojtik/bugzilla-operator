@@ -131,6 +131,10 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 			teamName := req.StringParam("team", "")
 			listMessage := []string{}
 			curr := c.getList(context.TODO())
+			if curr == nil {
+				w.Reply(":sadpanda: no ideas recorded")
+				return
+			}
 			for _, i := range curr.Items {
 				if len(teamName) != 0 && i.Team != teamName {
 					continue
