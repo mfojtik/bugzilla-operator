@@ -43,7 +43,7 @@ func New(ctx controller.ControllerContext) *Controller {
 func newIdeaFromDescription(s, team string) (*Idea, error) {
 	msgParts := strings.SplitN(s, team, 1)
 	if len(msgParts) != 2 {
-		return nil, fmt.Errorf("the description must contain 'because' word. eg. 'Improve thing X *because* we need more stability' (%q)", s)
+		return nil, fmt.Errorf("the description must contain 'team'. (%q)", team)
 	}
 	ideaParts := strings.SplitN(msgParts[1], "because", 1)
 	if len(ideaParts) != 2 {
