@@ -84,7 +84,7 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			r.noTargetReleaseCount++
 		}
 
-		if hasFlag(bug, "blocker", "+") && (targetRelease == currentTargetRelease || targetRelease == "---") {
+		if hasFlag(bug, "blocker", "+") && targetRelease == currentTargetRelease {
 			r.blockerPlus = append(r.blockerPlus, bug.ID)
 			r.serious["blocker+"] = append(r.serious["blocker+"], bug.ID)
 		}
@@ -94,8 +94,14 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 			r.serious["blocker?"] = append(r.serious["blocker?"], bug.ID)
 		}
 
+		// Triage means people will be notified about bugs that require attention.
+		// In this case:
+		// - All bugs in NEW state require to be ASSIGNED
+		// - All bugs in ASSIGNED (or other) state require to have priority AND severity set
 		triageState := sets.NewString("NEW", "")
-		if (targetRelease == currentTargetRelease && triageState.Has(bug.Status)) || targetRelease == "---" || bug.Priority == "unspecified" || bug.Priority == "" || bug.Severity == "unspecified" || bug.Severity == "" {
+		if triageState.Has(bug.Status) {
+			r.toTriage = append(r.toTriage, bug.ID)
+		} else if needTriage(bug) {
 			r.toTriage = append(r.toTriage, bug.ID)
 		}
 
@@ -111,6 +117,10 @@ func summarizeBugs(currentTargetRelease string, bugs ...*bugzilla.Bug) bugSummar
 	}
 
 	return r
+}
+
+func needTriage(bug *bugzilla.Bug) bool {
+	return bug.Priority == "unspecified" || bug.Priority == "" || bug.Severity == "unspecified" || bug.Severity == ""
 }
 
 func hasActiveCustomerCase(b *bugzilla.Bug) bool {

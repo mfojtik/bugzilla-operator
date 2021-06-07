@@ -101,6 +101,7 @@ func TestSummary(t *testing.T) {
 					TargetRelease: []string{"4.6.0"},
 					Severity:      "low",
 					Priority:      "low",
+					Status:        "ASSIGNED",
 					Flags: []bugzilla.Flag{
 						{Name: "blocker", Status: "+"},
 					},
@@ -119,6 +120,7 @@ func TestSummary(t *testing.T) {
 					ID:            1,
 					TargetRelease: []string{"4.4.0"},
 					Severity:      "low",
+					Status:        "ASSIGNED",
 					Priority:      "low",
 					Flags: []bugzilla.Flag{
 						{Name: "blocker", Status: "+"},
@@ -137,6 +139,7 @@ func TestSummary(t *testing.T) {
 				{
 					ID:            1,
 					TargetRelease: []string{"4.3.0"},
+					Status:        "ASSIGNED",
 					Severity:      "urgent",
 					Priority:      "low",
 				},
@@ -155,6 +158,7 @@ func TestSummary(t *testing.T) {
 					TargetRelease: []string{"4.3.0"},
 					Severity:      "low",
 					Priority:      "urgent",
+					Status:        "ASSIGNED",
 				},
 			},
 			blockerIDs:             []int{},
@@ -185,6 +189,7 @@ func TestSummary(t *testing.T) {
 				{
 					ID:            1,
 					TargetRelease: []string{"---"},
+					Status:        "NEW",
 					Severity:      "high",
 					Priority:      "high",
 				},
@@ -199,10 +204,10 @@ func TestSummary(t *testing.T) {
 			target: "4.5.0",
 			bugs: []*bugzilla.Bug{
 				{
-					ID:            1,
-					TargetRelease: []string{"---"},
-					Severity:      "unspecified",
-					Priority:      "high",
+					ID:       1,
+					Status:   "ASSIGNED",
+					Severity: "unspecified",
+					Priority: "high",
 				},
 			},
 			blockerIDs:             []int{},
@@ -217,6 +222,7 @@ func TestSummary(t *testing.T) {
 				{
 					ID:            1,
 					TargetRelease: []string{"4.6.0"},
+					Status:        "ASSIGNED",
 					Severity:      "high",
 					Priority:      "unspecified",
 				},
