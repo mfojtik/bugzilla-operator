@@ -138,7 +138,7 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 					continue
 				}
 				// TODO: humanize time
-				listMessage = append(listMessage, "> [%s] %s: %s (_%s_)", humanize.Time(i.Timestamp), i.From, i.Title, i.Clarification)
+				listMessage = append(listMessage, fmt.Sprintf("> [%s] %s: %s (_%s_)", humanize.Time(i.Timestamp), i.From, i.Title, i.Clarification))
 			}
 			if len(listMessage) == 0 {
 				w.Reply(":sadpanda: no ideas recorded")
