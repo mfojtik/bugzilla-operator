@@ -31,8 +31,8 @@ const (
 	blockerIntro = "You have *%d blocker+ bugs*%s:\n\n"
 	blockerOutro = "\n\nPlease keep eyes on these, they will risk the upcoming release if not finished in time!"
 
-	triageIntro = "You have *%d untriaged bugs*%s:\n\n"
-	triageOutro = "\n\nPlease make sure all these have the _Severity_, _Priority_ and _Target Release_ set, and move to ASSIGNED, so I can stop bothering you :-)\n\n"
+	triageIntro = "You have *%d not triaged bugs*%s:\n\n"
+	triageOutro = "\n\nAll NEW bugs require to be *ASSIGNED*. All ASSIGNED bugs require *priority* and *severity* to be set. Please set these, so I can stop bothering you :-)\n\n"
 )
 
 func NewChannelBlockersReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
@@ -332,7 +332,8 @@ func getStatsForChannel(targetRelease string, bugsCount int, summary bugSummary,
 	lines := []string{
 		getAllReleasesBugStats(bugsCount, summary, allReleasesQuery),
 		getCurrentReleaseBugStats(targetRelease, summary, currentReleaseQuery),
-		fmt.Sprintf("> Bugs without target release: %d", summary.noTargetReleaseCount),
+		// No target release is fine, because those bugs will not be fixed this release.
+		// fmt.Sprintf("> Bugs without target release: %d", summary.noTargetReleaseCount),
 		fmt.Sprintf("> "),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
