@@ -182,6 +182,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 		summary,
 		allReleasesQuery,
 		currentReleaseQeury,
+		config.Credentials.BitlyToken,
 	)
 
 	report := fmt.Sprintf("\n:bug: *Today 4.x Bug Report:* :bug:\n%s\n", strings.Join(channelStats, "\n"))
@@ -226,7 +227,7 @@ func otherBugsQuery(q bugzilla.Query) *url.URL {
 	return u
 }
 
-func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery bugzilla.Query) string {
+func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery bugzilla.Query, bitlyToken string) string {
 	allReleasesQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + allReleasesQuery.Values().Encode())
 	ciBugsQuery := allReleasesQuery
 	ciBugsQuery.Advanced = []bugzilla.AdvancedQuery{
@@ -254,19 +255,18 @@ func getAllReleasesBugStats(bugsCount int, summary bugSummary, allReleasesQuery 
 	customerBugsQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + customerQuery.Values().Encode())
 
 	return fmt.Sprintf("> All Releases Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, <%s|%d> other)_",
-		allReleasesQueryURL.String(),
+		bugutil.ShortenURL(allReleasesQueryURL.String(), bitlyToken),
 		bugsCount,
-		ciBugsQueryURL.String(),
+		bugutil.ShortenURL(ciBugsQueryURL.String(), bitlyToken),
 		summary.ciBugsCount,
-		customerBugsQueryURL.String(),
+		bugutil.ShortenURL(customerBugsQueryURL.String(), bitlyToken),
 		summary.withCustomerCase,
-		//otherBugsQuery(allReleasesQuery).String(),
-		"https://TODO",
+		bugutil.ShortenURL(otherBugsQuery(allReleasesQuery).String(), bitlyToken),
 		bugsCount-summary.ciBugsCount-summary.withCustomerCase,
 	)
 }
 
-func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currReleaseQuery bugzilla.Query) string {
+func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currReleaseQuery bugzilla.Query, bitlyToken string) string {
 	currentReleaseQueryURL, _ := url.Parse("https://bugzilla.redhat.com/buglist.cgi?" + currReleaseQuery.Values().Encode())
 	ciBugsQuery := currReleaseQuery
 	ciBugsQuery.TargetRelease = []string{targetRelease}
@@ -297,18 +297,17 @@ func getCurrentReleaseBugStats(targetRelease string, summary bugSummary, currRel
 
 	return fmt.Sprintf("> All Current (*%s*) Release Bugs: <%s|%d> _(<%s|%d> CI, <%s|%d> customer, <%s|%d> other)_",
 		targetRelease,
-		currentReleaseQueryURL.String(),
+		bugutil.ShortenURL(currentReleaseQueryURL.String(), bitlyToken),
 		summary.currentReleaseCount,
-		ciBugsQueryURL.String(),
+		bugutil.ShortenURL(ciBugsQueryURL.String(), bitlyToken),
 		summary.currentReleaseCICount,
-		customerBugsQueryURL.String(),
+		bugutil.ShortenURL(customerBugsQueryURL.String(), bitlyToken),
 		summary.currentReleaseCustomerCaseCount,
-		//otherBugsQuery(currReleaseQuery).String(),
-		"https://TODO",
+		bugutil.ShortenURL(otherBugsQuery(currReleaseQuery).String(), bitlyToken),
 		summary.currentReleaseCount-summary.currentReleaseCustomerCaseCount-summary.currentReleaseCustomerCaseCount)
 }
 
-func getStatsForChannel(targetRelease string, bugsCount int, summary bugSummary, allReleasesQuery, currentReleaseQuery bugzilla.Query) []string {
+func getStatsForChannel(targetRelease string, bugsCount int, summary bugSummary, allReleasesQuery, currentReleaseQuery bugzilla.Query, bitlyToken string) []string {
 	sortedPrioNames := []string{
 		"urgent",
 		"high",
@@ -330,10 +329,10 @@ func getStatsForChannel(targetRelease string, bugsCount int, summary bugSummary,
 	}
 
 	lines := []string{
-		getAllReleasesBugStats(bugsCount, summary, allReleasesQuery),
-		getCurrentReleaseBugStats(targetRelease, summary, currentReleaseQuery),
 		// No target release is fine, because those bugs will not be fixed this release.
 		// fmt.Sprintf("> Bugs without target release: %d", summary.noTargetReleaseCount),
+		getAllReleasesBugStats(bugsCount, summary, allReleasesQuery, bitlyToken),
+		getCurrentReleaseBugStats(targetRelease, summary, currentReleaseQuery, bitlyToken),
 		fmt.Sprintf("> "),
 		fmt.Sprintf("> Bugs Severity Breakdown: %s", strings.Join(severityMessages, ", ")),
 		fmt.Sprintf("> Bugs Priority Breakdown: %s", strings.Join(priorityMessages, ", ")),
