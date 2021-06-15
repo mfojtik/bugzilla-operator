@@ -15,6 +15,7 @@ type Credentials struct {
 	APIKey                 string `yaml:"apiKey"`
 	SlackToken             string `yaml:"slackToken"`
 	SlackVerificationToken string `yaml:"slackVerificationToken"`
+	BitlyToken             string `yaml:"bitlyToken"`
 }
 
 type Transition struct {
