@@ -33,6 +33,10 @@ type Group []string
 type Component struct {
 	// lead should match the bugzilla default assignee the component and will get notifications of new BZs by default.
 	Lead string `yaml:"lead"`
+	// pm should match with the component product manager. use the email he use on slack.
+	ProductManager string `yaml:"pm"`
+	// manager match the engineering manager of a team that own this component. use the email he use on slack
+	Manager string `yaml:"manager"`
 	// developers are not assigned by default, but might be on first comment if autoCommentAssign is true.
 	// This can have group:<group-name> references.
 	Developers []string `yaml:"developers"`
@@ -214,4 +218,22 @@ func (cm *ComponentMap) List() []string {
 		l = append(l, c)
 	}
 	return l
+}
+
+func (cm *ComponentMap) ProductManagerFor(component, fallback string) string {
+	for name, c := range *cm {
+		if name == component {
+			return c.ProductManager
+		}
+	}
+	return fallback
+}
+
+func (cm *ComponentMap) ManagerFor(component, fallback string) string {
+	for name, c := range *cm {
+		if name == component {
+			return c.Manager
+		}
+	}
+	return fallback
 }
