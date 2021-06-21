@@ -127,8 +127,10 @@ func (c *EscalationController) markUrgentTriageNotified(ctx context.Context, b *
 		return err
 	}
 	var escalations []escalation
-	if err := json.Unmarshal([]byte(bytes), &escalations); err != nil {
-		return err
+	if len(bytes) != 0 {
+		if err := json.Unmarshal([]byte(bytes), &escalations); err != nil {
+			return err
+		}
 	}
 	escalations = append(escalations, escalation{BugID: b.ID})
 	escalationsBytes, err := json.Marshal(escalations)
@@ -191,6 +193,7 @@ func getUrgentBugs(client cache.BugzillaClient, components []string) ([]*bugzill
 			"component",
 			"priority",
 			"summary",
+			"status",
 			"status_whiteboard",
 		},
 	})
