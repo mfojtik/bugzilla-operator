@@ -188,6 +188,7 @@ func getUrgentBugs(client cache.BugzillaClient, components []string) ([]*bugzill
 			"assigned_to",
 			"reporter",
 			"severity",
+			"component",
 			"priority",
 			"summary",
 			"status_whiteboard",
