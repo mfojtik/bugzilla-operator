@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/escalationcontroller"
+
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/ideas"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/tagcontroller"
@@ -109,6 +111,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
 		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
 		"needinfo":           needinfocontroller.NewNeedInfoController(controllerContext, cfg, recorder),
+		"urgent":             escalationcontroller.NewEscalationController(controllerContext, cfg, recorder),
 	}
 
 	ideasController := ideas.New(controllerContext)
