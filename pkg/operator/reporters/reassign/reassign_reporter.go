@@ -295,6 +295,8 @@ func getReassignedBugs(client cache.BugzillaClient, config *config.OperatorConfi
 		},
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 		},
 	})
 }
