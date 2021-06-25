@@ -25,7 +25,8 @@ import (
 // component as "component change". It reports then the top incoming and outgoing component for last 7 days.
 type ReassignReporter struct {
 	controller.ControllerContext
-	config config.OperatorConfig
+	config     config.OperatorConfig
+	components []string
 
 	// for unit testing
 	writeReportFn func(ctx context.Context, bugs []bug) error
@@ -116,10 +117,11 @@ func Report(ctx context.Context, controllerCtx controller.ControllerContext, rec
 	return strings.Join(result, "\n"), nil
 }
 
-func NewReassignReporter(controllerCtx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+func NewReassignReporter(controllerCtx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &ReassignReporter{
 		ControllerContext: controllerCtx,
 		config:            operatorConfig,
+		components:        components,
 	}
 
 	c.readReportFn = c.getReport
@@ -132,7 +134,7 @@ func NewReassignReporter(controllerCtx controller.ControllerContext, schedule []
 func (c *ReassignReporter) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	client := c.NewBugzillaClient(ctx)
 
-	bugs, err := getReassignedBugs(client, &c.config)
+	bugs, err := getReassignedBugs(client, c.components)
 	if err != nil {
 		syncContext.Recorder().Warningf("FetchBugs", "Unable to fetch reassigned bugs: %v", err)
 		return err
@@ -279,12 +281,12 @@ func (c *ReassignReporter) matchConfiguredComponent(transitions []componentChang
 	return false
 }
 
-func getReassignedBugs(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getReassignedBugs(client cache.BugzillaClient, components []string) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED", "POST"},
-		Component:      config.Components.List(),
+		Component:      components,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				// get all bugs that changed their component in the last week

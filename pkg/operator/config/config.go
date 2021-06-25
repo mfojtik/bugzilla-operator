@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -217,6 +218,7 @@ func (cm *ComponentMap) List() []string {
 	for c := range *cm {
 		l = append(l, c)
 	}
+	sort.Strings(l)
 	return l
 }
 
