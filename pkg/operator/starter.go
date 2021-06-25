@@ -102,7 +102,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	}
 	cmClient := kubeClient.CoreV1().ConfigMaps(os.Getenv("POD_NAMESPACE"))
 
-	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackAdminClient, slackDebugClient, cmClient)
+	controllerContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackAdminClient, slackDebugClient, slackerInstance, cmClient)
 	controllers := map[string]factory.Controller{
 		"stale":              stalecontroller.NewStaleController(controllerContext, cfg, recorder),
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
@@ -152,7 +152,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	reportComponents := map[string][]string{}
 	for _, ar := range cfg.Schedules {
 		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
-		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, cmClient)
+		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, slackerInstance, cmClient)
 		for _, r := range ar.Reports {
 			if c := newScheduledReport(r, reporterContext, ar.Components, ar.When); c != nil {
 				scheduledReports = append(scheduledReports, c)

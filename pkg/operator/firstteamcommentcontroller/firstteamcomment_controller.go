@@ -2,6 +2,7 @@ package firstteamcommentcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,12 +11,15 @@ import (
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	slackgo "github.com/slack-go/slack"
 	errutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
+
+const assignBlockID = "first-team-comment-controller/accept-assignment"
 
 type FirstTeamCommentController struct {
 	controller.ControllerContext
@@ -24,6 +28,11 @@ type FirstTeamCommentController struct {
 
 func NewFirstTeamCommentController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &FirstTeamCommentController{ctx, operatorConfig}
+
+	if err := ctx.SubscribeBlockAction(assignBlockID, c.assignClicked); err != nil {
+		klog.Warning(err)
+	}
+
 	return factory.New().WithSync(c.sync).ResyncEvery(2*time.Hour).ToController("FirstTeamCommentController", recorder)
 }
 
@@ -70,6 +79,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			}
 
 			var firstTeamCommentor string
+			var onlyOneTeamCommentor bool
 			for _, c := range comments {
 				commentor := c.Creator
 				if !strings.ContainsRune(commentor, '@') {
@@ -78,15 +88,17 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 				if strings.Contains(c.Text, "LifecycleStale") {
 					continue
 				}
-				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
-					firstTeamCommentor = commentor
-				}
 				if commentor == comp.Lead {
 					continue nextBug
 				}
+				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
+					firstTeamCommentor = commentor
+				} else if (commentor == comp.Lead || nonLeads.Has(commentor)) && commentor != firstTeamCommentor {
+					onlyOneTeamCommentor = false
+				}
 			}
 
-			if firstTeamCommentor == "" {
+			if firstTeamCommentor == "" || !onlyOneTeamCommentor {
 				continue
 			}
 
@@ -115,14 +127,49 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 				}
 			}
 
-			klog.Infof("%s commented on #%v, but lead %s hasn't.\n", firstTeamCommentor, b.ID, comp.Lead)
-			if err := client.UpdateBug(b.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: firstTeamCommentor}); err != nil {
-				klog.Errorf("Failed to assign bug #%v to %s", b.ID, firstTeamCommentor)
-				continue
+			klog.Infof("%s commented on #%v, but lead %s hasn't", firstTeamCommentor, b.ID, comp.Lead)
+
+			// TODO: remove to enable for everybody
+			if comp.Lead != "sttts@redhat.com" {
+				return nil
 			}
-			slackClient.MessageEmail(comp.Lead, fmt.Sprintf("Assigned %s bug <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q> to %s due to comments.", name, b.ID, b.ID, b.Summary, firstTeamCommentor))
+
+			value, _ := json.Marshal(AssignValue{b.ID, comp.Lead, firstTeamCommentor})
+			slackClient.PostMessageEmail(comp.Lead,
+				slackgo.MsgOptionBlocks(
+					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", fmt.Sprintf("%s commented on https://bugzilla.redhat.com/show_bug.cgi?id=%v", firstTeamCommentor, b.ID), false, false), nil, nil),
+					slackgo.NewActionBlock(assignBlockID,
+						slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Assign :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
+					),
+				),
+			)
 		}
 	}
 
 	return errutil.NewAggregate(errors)
+}
+
+type AssignValue struct {
+	ID       int    `json:"id"`
+	Lead     string `json:"lead"`
+	AssignTo string `json:"assignTo"`
+}
+
+func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message *slackgo.Container, user *slackgo.User, bzEmail string, action *slackgo.BlockAction) {
+	var value AssignValue
+	if err := json.Unmarshal([]byte(action.Value), &value); err != nil {
+		klog.Warningf("cannot unmarshal value %q: %v", action.Value, err)
+		return
+	}
+
+	client := c.NewBugzillaClient(ctx)
+	slackClient := c.SlackClient(ctx)
+
+	if err := client.UpdateBug(value.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: value.AssignTo}); err != nil {
+		slackClient.MessageEmail(value.Lead, fmt.Sprintf("Failed to assign https://bugzilla.redhat.com/show_bug.cgi?id=%v to %s: %v", value.ID, value.AssignTo, err))
+		klog.Errorf("Failed to assign bug #%v to %s", value.ID, value.AssignTo)
+		return
+	}
+
+	slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
 }

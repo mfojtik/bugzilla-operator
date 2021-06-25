@@ -63,7 +63,7 @@ func TestReassignReport(t *testing.T) {
 				2: {ID: 2},
 				3: {ID: 3},
 			},
-		), nil, nil, nil),
+		), nil, nil, nil, nil),
 		getBugHistory: fakeBugHistory(map[int][]bugzilla.History{
 			// This bug should be added to storage
 			1: {
