@@ -128,11 +128,6 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 
 			klog.Infof("%s commented on #%v, but lead %s hasn't", firstTeamCommentor, b.ID, comp.Lead)
 
-			// TODO: remove to enable for everybody
-			if comp.Lead != "sttts@redhat.com" {
-				return nil
-			}
-
 			value, _ := json.Marshal(AssignValue{b.ID, comp.Lead, firstTeamCommentor})
 			text := fmt.Sprintf("%s commented as first team member:\n\n%s", firstTeamCommentor, bugutil.FormatBugMessage(*b))
 			slackClient.PostMessageEmail(comp.Lead,
