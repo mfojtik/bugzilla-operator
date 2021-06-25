@@ -116,9 +116,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	ideasController := ideas.New(controllerContext)
 	ideasController.AddCommands(slackerInstance)
 
-	// TODO: enable by default
-	cfg.DisabledControllers = append(cfg.DisabledControllers, "NewBugController")
-
 	newScheduledReport := func(name string, ctx controller.ControllerContext, components, when []string) factory.Controller {
 		switch name {
 		case "blocker-bugs":
