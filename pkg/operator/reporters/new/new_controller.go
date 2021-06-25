@@ -106,12 +106,21 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 		return
 	}
 
-	bzEmail := slack.SlackEmailToBugzilla(&c.config, user.Profile.Email)
-
 	// we only have 3s to respond to Slack, but BZ might take longer. Do the work in a go routine
 	client := c.NewBugzillaClient(context.Background())
 	slackClient := c.SlackClient(context.Background())
 	go func() {
+		profile, err := c.slackGoClient.GetUserProfile(user.ID, false)
+		if err != nil {
+			slackClient.PostMessageChannel(
+				slackgo.MsgOptionPostEphemeral(user.ID),
+				slackgo.MsgOptionText(fmt.Sprintf("Failed to user profile of %v: %v", user.ID, err), false),
+			)
+			klog.Errorf("Failed to get user profile of %v: %v", user.ID, err)
+			return
+		}
+		bzEmail := slack.SlackEmailToBugzilla(&c.config, profile.Email)
+
 		b, _, err := client.GetCachedBug(value.ID, "")
 		if err != nil {
 			slackClient.PostMessageChannel(
@@ -149,11 +158,14 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 
 		text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), bzEmail)
 		klog.Infof("Updating message to: %v", text)
-		c.slackGoClient.UpdateMessage(
+		if _, _, _, err := c.slackGoClient.UpdateMessage(
 			message.ChannelID,
 			message.MessageTs,
 			slackgo.MsgOptionText(text, false),
-		)
+		); err != nil {
+			slackClient.MessageChannel(fmt.Sprintf("%s took: %s", bzEmail, bugutil.FormatBugMessage(*b)))
+			klog.Errorf("Failed to update message: %v", err)
+		}
 	}()
 }
 func Report(ctx context.Context, client cache.BugzillaClient, components []string) (string, error) {
