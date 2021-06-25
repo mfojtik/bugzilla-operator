@@ -18,7 +18,6 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
-	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 const assignBlockID = "first-team-comment-controller/accept-assignment"
@@ -53,8 +52,8 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 
 		query := fmt.Sprintf(
 			"email1=%s&email2=%s&emailassigned_to2=1&emaillongdesc1=1&emaillongdesc3=1&emailtype1=regexp&emailtype2=equals",
-			url.QueryEscape(strings.Join(slackEmailListToBugzilla(&c.config, nonLeads.List()), "|")),
-			url.QueryEscape(slack.SlackEmailToBugzilla(&c.config, comp.Lead)),
+			url.QueryEscape(strings.Join(nonLeads.List(), "|")),
+			url.QueryEscape(comp.Lead),
 		)
 		klog.Warning(query)
 		leadAssignedBugs, err := client.Search(bugzilla.Query{
@@ -171,14 +170,6 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 	}
 
 	slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
-}
-
-func slackEmailListToBugzilla(config *config.OperatorConfig, emails []string) []string {
-	ret := make([]string, 0, len(emails))
-	for _, x := range emails {
-		ret = append(ret, slack.SlackEmailToBugzilla(config, x))
-	}
-	return ret
 }
 
 func toIDList(bugs []*bugzilla.Bug) []int {
