@@ -114,6 +114,8 @@ func getBugsQuery(config *config.OperatorConfig, components []string) bugzilla.Q
 		Component:      components,
 		IncludeFields: []string{
 			"id",
+			"creation_time",
+			"last_change_time",
 			"summary",
 			"changeddate",
 			"whiteboard",
