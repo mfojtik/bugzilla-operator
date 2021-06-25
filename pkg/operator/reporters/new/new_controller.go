@@ -85,7 +85,7 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 			slackgo.MsgOptionBlocks(
 				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", bugutil.FormatBugMessage(*b), false, false), nil, nil),
 				slackgo.NewActionBlock(c.takeBlockerID,
-					slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Take", true, false)).WithStyle(slackgo.StylePrimary),
+					slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Take this Bug", true, false)).WithStyle(slackgo.StylePrimary),
 				),
 			),
 		)
@@ -126,6 +126,7 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 				slackgo.MsgOptionPostEphemeral(user.ID),
 				slackgo.MsgOptionText(fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has been moved already to %s", value.ID, b.Status), false),
 			)
+			klog.Infof("Bug #%v not NEW anymore, but %q", value.ID, b.Status)
 			return
 		}
 		if b.AssignedTo != "" && b.AssignedTo != value.OldAssignee {
@@ -133,6 +134,7 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 				slackgo.MsgOptionPostEphemeral(user.ID),
 				slackgo.MsgOptionText(fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has already been assigned to %s", value.ID, value.OldAssignee), false),
 			)
+			klog.Infof("Bug #%v changed assigned, expected %q, got %q", value.ID, value.OldAssignee, b.AssignedTo)
 			return
 		}
 
@@ -145,10 +147,12 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 			return
 		}
 
+		text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), bzEmail)
+		klog.Infof("Updating message to: %v", text)
 		c.slackGoClient.UpdateMessage(
 			message.ChannelID,
 			message.MessageTs,
-			slackgo.MsgOptionText(fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), bzEmail), false),
+			slackgo.MsgOptionText(text, false),
 		)
 	}()
 }
