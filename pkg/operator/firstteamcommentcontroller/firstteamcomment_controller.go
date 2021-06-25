@@ -66,7 +66,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 			continue
 		}
-		klog.Infof("%d NEW bugs found assigned to lead %s in compoent %s: %s", len(leadAssignedBugs), comp.Lead, name, strings.Join(toStringList(toIDList(leadAssignedBugs)), " "))
+		klog.Infof("%d NEW bugs found assigned to lead %s in component %s: %s", len(leadAssignedBugs), comp.Lead, name, strings.Join(toStringList(toIDList(leadAssignedBugs)), " "))
 
 	nextBug:
 		for _, b := range leadAssignedBugs {
@@ -77,7 +77,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			}
 
 			var firstTeamCommentor string
-			var onlyOneTeamCommentor bool
+			onlyOneTeamCommentor := true
 			for _, c := range comments {
 				commentor := c.Creator
 				if !strings.ContainsRune(commentor, '@') {
@@ -91,7 +91,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 				}
 				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
 					firstTeamCommentor = commentor
-				} else if (commentor == comp.Lead || nonLeads.Has(commentor)) && commentor != firstTeamCommentor {
+				} else if nonLeads.Has(commentor) && commentor != firstTeamCommentor {
 					onlyOneTeamCommentor = false
 				}
 			}
