@@ -108,7 +108,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"stale-reset":        resetcontroller.NewResetStaleController(controllerContext, cfg, recorder),
 		"tag":                tagcontroller.NewTagController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
-		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
+		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, slackClient, recorder),
 		"needinfo":           needinfocontroller.NewNeedInfoController(controllerContext, cfg, recorder),
 		"urgent":             escalationcontroller.NewEscalationController(controllerContext, cfg, recorder),
 	}
