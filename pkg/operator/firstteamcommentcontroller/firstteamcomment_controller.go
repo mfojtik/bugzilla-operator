@@ -51,11 +51,26 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 		nonLeads := config.ExpandGroups(c.config.Groups, comp.Developers...)
 		nonLeads = nonLeads.Delete(comp.Lead)
 
+		since := time.Now().Add(-time.Hour * 24 * 365)
+		sinceKey := "first-team-comment-controller.since-" + name
+		if s, err := c.GetPersistentValue(ctx, sinceKey); err != nil {
+			return err
+		} else if s != "" {
+			if t, err := time.Parse(time.RFC3339, s); err != nil {
+				klog.Warningf("Cannot parse time %q for key %s: %v", s, sinceKey, err)
+			} else {
+				since = t
+			}
+		}
+		newSince := time.Now()
+
 		query := fmt.Sprintf(
-			"email1=%s&email2=%s&emailassigned_to2=1&emaillongdesc1=1&emaillongdesc3=1&emailtype1=regexp&emailtype2=equals",
+			"email1=%s&email2=%s&emailassigned_to2=1&emaillongdesc1=1&emaillongdesc3=1&emailtype1=regexp&emailtype2=equals&last_change_time=%s",
 			url.QueryEscape(strings.Join(nonLeads.List(), "|")),
 			url.QueryEscape(comp.Lead),
+			url.QueryEscape(since.Format("2006-01-02T15:04:05Z")),
 		)
+
 		klog.Warning(query)
 		leadAssignedBugs, err := client.Search(bugzilla.Query{
 			Product:   []string{"OpenShift Container Platform"},
@@ -91,6 +106,12 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 					continue nextBug
 				}
 				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
+					createdAt, err := time.Parse("2006-01-02T15:04:05Z", c.CreationTime)
+					if err == nil && createdAt.Before(since) {
+						// we must have seen this before and notified
+						continue nextBug
+					}
+
 					firstTeamCommentor = commentor
 				} else if nonLeads.Has(commentor) && commentor != firstTeamCommentor {
 					onlyOneTeamCommentor = false
@@ -138,6 +159,10 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 					),
 				),
 			)
+		}
+
+		if persistErr := c.SetPersistentValue(ctx, sinceKey, newSince.Format(time.RFC3339)); persistErr != nil {
+			klog.Warningf("Cannot persist key %s: %v", sinceKey, persistErr)
 		}
 	}
 
