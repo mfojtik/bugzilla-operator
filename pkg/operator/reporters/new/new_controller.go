@@ -193,8 +193,15 @@ func getNewBugs(client cache.BugzillaClient, components []string, lastID int) ([
 		IncludeFields: []string{
 			"id",
 			"assigned_to",
+			"status",
+			"severity",
+			"priority",
 			"component",
 			"summary",
+			"cf_cust_facing",
+			"target_release",
+			"last_change_time",
+			"reporter",
 		},
 	})
 }
