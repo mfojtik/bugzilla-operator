@@ -32,11 +32,11 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/needinfocontroller"
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/newcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/escalation"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/incoming"
+	newreporter "github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/new"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/reassign"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
@@ -109,7 +109,6 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		"tag":                tagcontroller.NewTagController(controllerContext, cfg, recorder),
 		"close-stale":        closecontroller.NewCloseStaleController(controllerContext, cfg, recorder),
 		"first-team-comment": firstteamcommentcontroller.NewFirstTeamCommentController(controllerContext, cfg, recorder),
-		"new":                newcontroller.NewNewBugController(controllerContext, cfg, recorder),
 		"needinfo":           needinfocontroller.NewNeedInfoController(controllerContext, cfg, recorder),
 		"urgent":             escalationcontroller.NewEscalationController(controllerContext, cfg, recorder),
 	}
@@ -144,6 +143,8 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			return escalation.NewEscalationReporter(ctx, components, when, cfg, recorder)
 		case "post-stale":
 			return stalepost.NewStalePostReporter(ctx, when, cfg, recorder)
+		case "new-bugs":
+			return newreporter.NewNewBugReporter(controllerContext, when, cfg, recorder)
 		default:
 			return nil
 		}

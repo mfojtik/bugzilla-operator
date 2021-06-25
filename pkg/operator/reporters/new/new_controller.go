@@ -1,11 +1,10 @@
-package newcontroller
+package new
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -18,19 +17,19 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
 
-type NewBugController struct {
+type NewBugReporter struct {
 	controller.ControllerContext
 	config config.OperatorConfig
 }
 
-const stateKey = "new-bug-controller.state"
+const stateKey = "new-bug-reporter.state"
 
-func NewNewBugController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
-	c := &NewBugController{ctx, operatorConfig}
-	return factory.New().WithSync(c.sync).ResyncEvery(1*time.Hour).ToController("NewBugController", recorder)
+func NewNewBugReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &NewBugReporter{ctx, operatorConfig}
+	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("NewBugReporter", recorder)
 }
 
-func (c *NewBugController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
