@@ -87,6 +87,9 @@ type OperatorConfig struct {
 	SlackChannel      string `yaml:"slackChannel"`
 	SlackAdminChannel string `yaml:"slackAdminChannel"`
 
+	// if Bugzilla email and Slack differ, these are the slack emails keyed by bugzilla emails.
+	SlackEmails map[string]string `yaml:"slackEmails"`
+
 	// GithubToken is used to query PR's
 	GithubToken string `yaml:"githubToken"`
 
