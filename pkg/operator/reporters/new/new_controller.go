@@ -2,6 +2,7 @@ package new
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	slackgo "github.com/slack-go/slack"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 
@@ -16,20 +18,30 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type NewBugReporter struct {
 	controller.ControllerContext
-	config     config.OperatorConfig
-	components []string
+	config        config.OperatorConfig
+	components    []string
+	takeBlockerID string
+	slackGoClient *slackgo.Client
 }
 
-func NewNewBugReporter(ctx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+func NewNewBugReporter(ctx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, slackGoClient *slackgo.Client, recorder events.Recorder) factory.Controller {
 	c := &NewBugReporter{
 		ctx,
 		operatorConfig,
 		components,
+		fmt.Sprintf("new-bugs-reporter/take-%s", strings.Join(components, "-")),
+		slackGoClient,
 	}
+
+	if err := ctx.SubscribeBlockAction(c.takeBlockerID, c.takeClicked); err != nil {
+		klog.Warning(err)
+	}
+
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("NewBugReporter", recorder)
 }
 
@@ -63,24 +75,83 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	}
 
 	var errs []error
-	ids := []string{}
-	for i, b := range newBugs {
+	for _, b := range newBugs {
 		if b.ID > lastID {
 			lastID = b.ID
 		}
-		ids = append(ids, fmt.Sprintf("<https://bugzilla.redhat.com/show_bug.cgi?id=%d|#%d>", b.ID, b.ID))
-		if i > 50 {
-			ids = append(ids, fmt.Sprintf(" ... and %d more", len(newBugs)-50))
-			break
-		}
-	}
-	slackClient.MessageAdminChannel(fmt.Sprintf("Found new bugs: %s", strings.Join(ids, ", ")))
 
-	// TODO: add interactivity and send to assignee
+		value, _ := json.Marshal(TakeValue{b.ID, b.AssignedTo})
+		slackClient.PostMessageChannel(
+			slackgo.MsgOptionBlocks(
+				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", bugutil.FormatBugMessage(*b), false, false), nil, nil),
+				slackgo.NewActionBlock(c.takeBlockerID,
+					slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Take", true, false)).WithStyle(slackgo.StylePrimary),
+				),
+			),
+		)
+	}
 
 	return errorutil.NewAggregate(errs)
 }
 
+type TakeValue struct {
+	ID          int    `json:"id"`
+	OldAssignee string `json:"oldAssignee"`
+}
+
+func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction) {
+	var value TakeValue
+	if err := json.Unmarshal([]byte(action.Value), &value); err != nil {
+		klog.Warningf("cannot unmarshal value %q: %v", action.Value, err)
+		return
+	}
+
+	bzEmail := slack.SlackEmailToBugzilla(&c.config, user.Profile.Email)
+
+	// we only have 3s to respond to Slack, but BZ might take longer. Do the work in a go routine
+	client := c.NewBugzillaClient(context.Background())
+	slackClient := c.SlackClient(context.Background())
+	go func() {
+		b, _, err := client.GetCachedBug(value.ID, "")
+		if err != nil {
+			slackClient.PostMessageChannel(
+				slackgo.MsgOptionPostEphemeral(user.ID),
+				slackgo.MsgOptionText(fmt.Sprintf("Failed to get https://bugzilla.redhat.com/show_bug.cgi?id=%v: %v", value.ID, err), false),
+			)
+			klog.Errorf("Failed to get bug #%v: %v", value.ID, err)
+			return
+		}
+		if b.Status != "NEW" {
+			slackClient.PostMessageChannel(
+				slackgo.MsgOptionPostEphemeral(user.ID),
+				slackgo.MsgOptionText(fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has been moved already to %s", value.ID, b.Status), false),
+			)
+			return
+		}
+		if b.AssignedTo != "" && b.AssignedTo != value.OldAssignee {
+			slackClient.PostMessageChannel(
+				slackgo.MsgOptionPostEphemeral(user.ID),
+				slackgo.MsgOptionText(fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has already been assigned to %s", value.ID, value.OldAssignee), false),
+			)
+			return
+		}
+
+		if err := client.UpdateBug(value.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: bzEmail}); err != nil {
+			slackClient.PostMessageChannel(
+				slackgo.MsgOptionPostEphemeral(user.ID),
+				slackgo.MsgOptionText(fmt.Sprintf("Failed to assign https://bugzilla.redhat.com/show_bug.cgi?id=%v to %s: %v", value.ID, bzEmail, err), false),
+			)
+			klog.Errorf("Failed to assign bug #%v to %s: %v", value.ID, bzEmail, err)
+			return
+		}
+
+		c.slackGoClient.UpdateMessage(
+			message.ChannelID,
+			message.MessageTs,
+			slackgo.MsgOptionText(fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), bzEmail), false),
+		)
+	}()
+}
 func Report(ctx context.Context, client cache.BugzillaClient, components []string) (string, error) {
 	newBugs, err := getNewBugs(client, components, 0)
 	if err != nil {

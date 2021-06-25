@@ -144,7 +144,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		case "post-stale":
 			return stalepost.NewStalePostReporter(ctx, components, when, cfg, recorder)
 		case "new-bugs":
-			return newreporter.NewNewBugReporter(controllerContext, when, cfg, recorder)
+			return newreporter.NewNewBugReporter(controllerContext, components, when, cfg, slackClient, recorder)
 		default:
 			return nil
 		}
