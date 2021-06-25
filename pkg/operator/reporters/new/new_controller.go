@@ -180,7 +180,7 @@ func getNewBugs(client cache.BugzillaClient, components []string, lastID int) ([
 		aq = bugzilla.AdvancedQuery{
 			Field: "creation_ts",
 			Op:    "greaterthaneq",
-			Value: "-24h", // last day
+			Value: "-168h", // last week
 		}
 	}
 
