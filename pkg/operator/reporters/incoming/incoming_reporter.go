@@ -22,13 +22,14 @@ import (
 type IncomingReporter struct {
 	controller.ControllerContext
 	config config.OperatorConfig
+	components []string
 }
 
 func (c *IncomingReporter) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
-	channelReport, assigneeReports, bugs, err := Report(ctx, client, syncContext.Recorder(), &c.config)
+	channelReport, assigneeReports, bugs, err := Report(ctx, client, syncContext.Recorder(), c.components)
 	if err != nil {
 		return err
 	}
@@ -64,10 +65,11 @@ func (c *IncomingReporter) sync(ctx context.Context, syncContext factory.SyncCon
 	return nil
 }
 
-func NewIncomingReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+func NewIncomingReporter(ctx controller.ControllerContext, components []string, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
 	c := &IncomingReporter{
 		ControllerContext: ctx,
 		config:            operatorConfig,
+		components:        components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("IncomingReporter", recorder)
 }
@@ -77,8 +79,8 @@ type AssigneeReport struct {
 	reports []string
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig) (string, map[string]AssigneeReport, []*bugzilla.Bug, error) {
-	incomingBugs, err := getIncomingBugsList(client, config)
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, components []string) (string, map[string]AssigneeReport, []*bugzilla.Bug, error) {
+	incomingBugs, err := getIncomingBugsList(client, components)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", nil, nil, err
@@ -112,12 +114,12 @@ func (c *IncomingReporter) markAsReported(client cache.BugzillaClient, id int) e
 	return client.UpdateBug(id, bugzilla.BugUpdate{DevWhiteboard: "AssigneeNotified", MinorUpdate: true})
 }
 
-func getIncomingBugsList(client cache.BugzillaClient, config *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getIncomingBugsList(client cache.BugzillaClient, components []string) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW", "ASSIGNED"},
-		Component:      config.Components.List(),
+		Component:      components,
 		Advanced: []bugzilla.AdvancedQuery{
 			{
 				Field: "cf_devel_whiteboard",

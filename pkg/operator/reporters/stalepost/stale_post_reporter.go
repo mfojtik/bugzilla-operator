@@ -24,11 +24,17 @@ import (
 // StalePostReporter monitor bugs that are in POST state and report them.
 type StalePostReporter struct {
 	controller.ControllerContext
-	config config.OperatorConfig
+	config     config.OperatorConfig
+	components []string
 }
 
-func NewStalePostReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
-	c := &StalePostReporter{ControllerContext: ctx, config: operatorConfig}
+func NewStalePostReporter(ctx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &StalePostReporter{
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
+	}
+
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("StalePostReporter", recorder)
 }
 
@@ -36,7 +42,7 @@ func (c *StalePostReporter) sync(ctx context.Context, syncCtx factory.SyncContex
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 	urgentOnlyCtx := context.WithValue(ctx, "urgent", true)
-	report, err := Report(urgentOnlyCtx, client, &c.config)
+	report, err := Report(urgentOnlyCtx, client, c.components, &c.config)
 	if err != nil {
 		return err
 	}
@@ -83,9 +89,9 @@ func reportBugsBySeverity(ctx context.Context, ghClient *github.Client, sev stri
 	return result, errors
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, config *config.OperatorConfig) (string, error) {
+func Report(ctx context.Context, client cache.BugzillaClient, components []string, config *config.OperatorConfig) (string, error) {
 	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.GithubToken})))
-	bugs, err := getNewBugs(client, config)
+	bugs, err := getNewBugs(client, components)
 	if err != nil {
 		return "", err
 	}
@@ -185,7 +191,7 @@ func getGithubPullFromExternalBugID(ctx context.Context, ghClient *github.Client
 	return pr, nil
 }
 
-func getNewBugs(client cache.BugzillaClient, c *config.OperatorConfig) ([]*bugzilla.Bug, error) {
+func getNewBugs(client cache.BugzillaClient, components []string) ([]*bugzilla.Bug, error) {
 	aq := bugzilla.AdvancedQuery{
 		Field: "days_elapsed",
 		Op:    "greaterthan",
@@ -196,7 +202,7 @@ func getNewBugs(client cache.BugzillaClient, c *config.OperatorConfig) ([]*bugzi
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"POST"},
 		Severity:       []string{"urgent", "high"},
-		Component:      c.Components.List(),
+		Component:      components,
 		Advanced:       []bugzilla.AdvancedQuery{aq},
 		IncludeFields: []string{
 			"id",

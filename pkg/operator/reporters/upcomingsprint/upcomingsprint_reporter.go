@@ -34,7 +34,7 @@ func (c *UpcomingSprintReporter) sync(ctx context.Context, syncCtx factory.SyncC
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
-	report, err := Report(ctx, client, syncCtx.Recorder(), &c.config, c.components)
+	report, err := Report(ctx, client, syncCtx.Recorder(), c.components)
 	if err != nil {
 		return err
 	}
@@ -65,8 +65,8 @@ type sortedAssignee struct {
 	bugCount     int
 }
 
-func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, config *config.OperatorConfig, components []string) (string, error) {
-	needUpcomingSprintBugs, err := getUpcomingSprintList(client, config, components)
+func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Recorder, components []string) (string, error) {
+	needUpcomingSprintBugs, err := getUpcomingSprintList(client, components)
 	if err != nil {
 		recorder.Warningf("BugSearchFailed", err.Error())
 		return "", err
@@ -120,7 +120,7 @@ func getEmojiForCount(count int) string {
 	}
 }
 
-func getUpcomingSprintList(client cache.BugzillaClient, config *config.OperatorConfig, components []string) ([]*bugzilla.Bug, error) {
+func getUpcomingSprintList(client cache.BugzillaClient, components []string) ([]*bugzilla.Bug, error) {
 	return client.Search(bugzilla.Query{
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},

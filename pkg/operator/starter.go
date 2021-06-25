@@ -130,11 +130,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		case "user-blocker-bugs":
 			return blockers.NewBlockerReminder(ctx, components, when, cfg, recorder)
 		case "incoming-bugs":
-			return incoming.NewIncomingReporter(ctx, when, cfg, recorder)
+			return incoming.NewIncomingReporter(ctx, components, when, cfg, recorder)
 		case "incoming-stats":
-			return incoming.NewIncomingStatsReporter(ctx, when, cfg, recorder)
+			return incoming.NewIncomingStatsReporter(ctx, components, when, recorder)
 		case "moved-bugs":
-			return reassign.NewReassignReporter(ctx, when, cfg, recorder)
+			return reassign.NewReassignReporter(ctx, components, when, cfg, recorder)
 		case "closed-bugs":
 			return closed.NewClosedReporter(ctx, components, when, cfg, recorder)
 		case "upcoming-sprint":
@@ -142,7 +142,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		case "escalations":
 			return escalation.NewEscalationReporter(ctx, components, when, cfg, recorder)
 		case "post-stale":
-			return stalepost.NewStalePostReporter(ctx, when, cfg, recorder)
+			return stalepost.NewStalePostReporter(ctx, components, when, cfg, recorder)
 		case "new-bugs":
 			return newreporter.NewNewBugReporter(controllerContext, when, cfg, recorder)
 		default:
@@ -259,12 +259,12 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				},
 				"incoming-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					report, _, _, err := incoming.Report(ctx, client, recorder, &cfg)
+					report, _, _, err := incoming.Report(ctx, client, recorder, cfg.Components.List())
 					return report, err
 				},
 				"incoming-stats": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					report, err := incoming.ReportStats(ctx, controllerContext, recorder, &cfg)
+					report, err := incoming.ReportStats(ctx, controllerContext, recorder)
 					return report, err
 				},
 				"moved-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
@@ -274,7 +274,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				},
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					return upcomingsprint.Report(ctx, client, recorder, &cfg, cfg.Components.List())
+					return upcomingsprint.Report(ctx, client, recorder, cfg.Components.List())
 				},
 				"escalations": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
@@ -282,12 +282,12 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					return report, err
 				},
 				"post-stale": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
-					report, err := stalepost.Report(ctx, client, &cfg)
+					report, err := stalepost.Report(ctx, client, cfg.Components.List(), &cfg)
 					return report, err
 				},
 				"post-stale-urgent": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					urgentCtx := context.WithValue(ctx, "urgent", true)
-					report, err := stalepost.Report(urgentCtx, client, &cfg)
+					report, err := stalepost.Report(urgentCtx, client, cfg.Components.List(), &cfg)
 					return report, err
 				},
 

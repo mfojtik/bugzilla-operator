@@ -15,10 +15,11 @@ import (
 
 type IncomingStatsReporter struct {
 	controller.ControllerContext
-	config config.OperatorConfig
+	config     config.OperatorConfig
+	components []string
 }
 
-func ReportStats(ctx context.Context, controllerCtx controller.ControllerContext, recorder events.Recorder, config *config.OperatorConfig) (string, error) {
+func ReportStats(ctx context.Context, controllerCtx controller.ControllerContext, recorder events.Recorder) (string, error) {
 	reportsJSON, err := controllerCtx.GetPersistentValue(ctx, "incoming-report")
 	if err != nil {
 		recorder.Warningf("GetPersistentValueFailed", "Failed to get incoming-report: %v", err)
@@ -84,7 +85,7 @@ func countTotal(report map[string]int) int {
 
 func (r *IncomingStatsReporter) sync(ctx context.Context, controllerContext factory.SyncContext) error {
 	slackClient := r.SlackClient(ctx)
-	message, err := ReportStats(ctx, r.ControllerContext, controllerContext.Recorder(), nil)
+	message, err := ReportStats(ctx, r.ControllerContext, controllerContext.Recorder())
 	if err != nil {
 		return err
 	}
@@ -128,10 +129,10 @@ func reportsToMap(reports []IncomingDailyReport) (map[string]int, map[string]int
 	return components, severities
 }
 
-func NewIncomingStatsReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+func NewIncomingStatsReporter(ctx controller.ControllerContext, components, schedule []string, recorder events.Recorder) factory.Controller {
 	c := &IncomingStatsReporter{
 		ControllerContext: ctx,
-		config:            operatorConfig,
+		components:        components,
 	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("IncomingStatsReporter", recorder)
 }

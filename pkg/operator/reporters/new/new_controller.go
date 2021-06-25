@@ -25,7 +25,7 @@ type NewBugReporter struct {
 const stateKey = "new-bug-reporter.state"
 
 func NewNewBugReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
-	c := &NewBugReporter{ctx, operatorConfig}
+	c := &NewBugReporter{ctx,operatorConfig},
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("NewBugReporter", recorder)
 }
 
