@@ -186,9 +186,24 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 	client := c.NewBugzillaClient(context.Background())
 	slackClient := c.SlackClient(context.Background())
 	go func() {
+		b, _, err := client.GetCachedBug(value.ID, "")
+		if err != nil {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Failed to get https://bugzilla.redhat.com/show_bug.cgi?id=%v: %v", value.ID, err))
+			klog.Errorf("Failed to get bug #%v: %v", value.ID, err)
+			return
+		}
+		if b.Status != "NEW" {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has been moved already to %s", value.ID, b.Status))
+			return
+		}
+		if b.AssignedTo != "" && b.AssignedTo != value.Lead {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Bug https://bugzilla.redhat.com/show_bug.cgi?id=%v has already been assigned to %s", value.ID, value.Lead))
+			return
+		}
+
 		if err := client.UpdateBug(value.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: value.AssignTo}); err != nil {
 			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Failed to assign https://bugzilla.redhat.com/show_bug.cgi?id=%v to %s: %v", value.ID, value.AssignTo, err))
-			klog.Errorf("Failed to assign bug #%v to %s", value.ID, value.AssignTo)
+			klog.Errorf("Failed to assign bug #%v to %s: %v", value.ID, value.AssignTo, err)
 			return
 		}
 
