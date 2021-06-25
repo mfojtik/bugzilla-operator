@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
@@ -62,6 +63,16 @@ func (c *EscalationController) sync(ctx context.Context, context factory.SyncCon
 		if strings.Contains(b.Whiteboard, "EmergencyConfirmed") {
 			continue
 		}
+
+		// ignore bugs from team members
+		if len(b.Component) > 0 {
+			if comp, ok := c.config.Components[b.Component[0]]; ok {
+				if b.Creator == comp.Lead || b.Creator == comp.Manager || b.Creator == comp.ProductManager || sets.NewString(comp.Developers...).Has(b.Creator) {
+					continue
+				}
+			}
+		}
+
 		// This urgent/urgent bug has not requested emergency vetting, notify managers and drop summary into status channel.
 		// Managers will get 1 notification, but we will keep posting message to status channel until there is an action.
 		if !c.isTriageRequested(ctx, b) {
