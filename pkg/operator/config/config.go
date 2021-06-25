@@ -43,9 +43,6 @@ type Component struct {
 	// watchers get notified about new bugzillas. If this is empty, the lead is notified.
 	// This can have group:<group-name> references.
 	Watchers []string `yaml:"watchers"`
-	// the first commentor from the developers is auto-assigned if the default
-	// assignee hasn't commented yet.
-	AssignFirstDeveloperCommentor bool `yaml:"autoCommentAssign"`
 }
 
 type AutomaticReport struct {
