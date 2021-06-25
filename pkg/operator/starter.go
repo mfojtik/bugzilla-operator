@@ -264,13 +264,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				},
 				"incoming-stats": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					report, err := incoming.ReportStats(ctx, controllerContext, recorder)
-					return report, err
+					return incoming.ReportStats(ctx, controllerContext, recorder)
 				},
 				"moved-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
-					report, err := reassign.Report(ctx, controllerContext, recorder, &cfg)
-					return report, err
+					return reassign.Report(ctx, controllerContext, recorder, &cfg)
 				},
 				"upcoming-sprint": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					// TODO: restrict components to one team
@@ -282,13 +280,14 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					return report, err
 				},
 				"post-stale": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
-					report, err := stalepost.Report(ctx, client, cfg.Components.List(), &cfg)
-					return report, err
+					return stalepost.Report(ctx, client, cfg.Components.List(), &cfg)
 				},
 				"post-stale-urgent": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
 					urgentCtx := context.WithValue(ctx, "urgent", true)
-					report, err := stalepost.Report(urgentCtx, client, cfg.Components.List(), &cfg)
-					return report, err
+					return stalepost.Report(urgentCtx, client, cfg.Components.List(), &cfg)
+				},
+				"new-bugs": func(ctx context.Context, client cache.BugzillaClient) (string, error) {
+					return newreporter.Report(ctx, client, cfg.Components.List())
 				},
 
 				// don't forget to also add new reports above in the trigger command

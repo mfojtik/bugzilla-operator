@@ -13,19 +13,23 @@ import (
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
 
 type NewBugReporter struct {
 	controller.ControllerContext
-	config config.OperatorConfig
+	config     config.OperatorConfig
+	components []string
 }
 
-const stateKey = "new-bug-reporter.state"
-
-func NewNewBugReporter(ctx controller.ControllerContext, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
-	c := &NewBugReporter{ctx,operatorConfig},
+func NewNewBugReporter(ctx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
+	c := &NewBugReporter{
+		ctx,
+		operatorConfig,
+		components,
+	}
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("NewBugReporter", recorder)
 }
 
@@ -33,6 +37,7 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	client := c.NewBugzillaClient(ctx)
 	slackClient := c.SlackClient(ctx)
 
+	stateKey := "new-bug-reporter.state-" + strings.Join(c.components, "-")
 	lastID := 0
 	if s, err := c.GetPersistentValue(ctx, stateKey); err != nil {
 		return err
@@ -51,7 +56,7 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		}
 	}()
 
-	newBugs, err := getNewBugs(client, c.config, lastID)
+	newBugs, err := getNewBugs(client, c.components, lastID)
 	if err != nil {
 		syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 		return err
@@ -76,7 +81,25 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 	return errorutil.NewAggregate(errs)
 }
 
-func getNewBugs(client cache.BugzillaClient, c config.OperatorConfig, lastID int) ([]*bugzilla.Bug, error) {
+func Report(ctx context.Context, client cache.BugzillaClient, components []string) (string, error) {
+	newBugs, err := getNewBugs(client, components, 0)
+	if err != nil {
+		return "", err
+	}
+
+	lines := []string{"New bugs of the last week (excluding those already in a different state):", ""}
+	for i, b := range newBugs {
+		lines = append(lines, fmt.Sprintf("> %s", bugutil.FormatBugMessage(*b)))
+		if i > 20 {
+			lines = append(lines, fmt.Sprintf(" ... and %d more", len(newBugs)-20))
+			break
+		}
+	}
+
+	return strings.Join(lines, "\n"), nil
+}
+
+func getNewBugs(client cache.BugzillaClient, components []string, lastID int) ([]*bugzilla.Bug, error) {
 	aq := bugzilla.AdvancedQuery{
 		Field: "bug_id",
 		Op:    "greaterthan",
@@ -94,7 +117,7 @@ func getNewBugs(client cache.BugzillaClient, c config.OperatorConfig, lastID int
 		Classification: []string{"Red Hat"},
 		Product:        []string{"OpenShift Container Platform"},
 		Status:         []string{"NEW"},
-		Component:      c.Components.List(),
+		Component:      components,
 		Advanced:       []bugzilla.AdvancedQuery{aq},
 		IncludeFields: []string{
 			"id",
