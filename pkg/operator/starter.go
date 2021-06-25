@@ -237,6 +237,18 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					msg.ChannelID,
 					slackgo.MsgOptionText(fmt.Sprintf("%s clicked button with value %q", u.Name, a.Value), false),
 				)
+
+				if _, _, _, err := slackClient.UpdateMessage(
+					msg.ChannelID,
+					msg.MessageTs,
+					slackgo.MsgOptionText("Message action was executed.", false),
+				); err != nil {
+					slackClient.SendMessage(
+						msg.ChannelID,
+						slackgo.MsgOptionText(fmt.Sprintf("Failed to update message: %v", err), false),
+					)
+					klog.Errorf("Failed to update message: %v", err)
+				}
 			})
 		},
 	})
