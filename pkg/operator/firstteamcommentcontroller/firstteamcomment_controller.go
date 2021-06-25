@@ -217,7 +217,9 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 		if _, _, _, err := c.slackGoClient.UpdateMessage(
 			message.ChannelID,
 			message.MessageTs,
-			slackgo.MsgOptionText(text, false),
+			slackgo.MsgOptionBlocks(
+				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", text, false, false), nil, nil),
+			),
 		); err != nil {
 			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
 			klog.Errorf("Failed to update message: %v", err)
