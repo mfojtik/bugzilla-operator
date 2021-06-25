@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -27,22 +29,96 @@ type NewBugReporter struct {
 	components    []string
 	takeBlockerID string
 	slackGoClient *slackgo.Client
+
+	messagesLock             sync.Mutex
+	messagesToWatchAndUpdate []message
+}
+
+type message struct {
+	createdAt time.Time
+
+	// bugzilla
+	ID int
+
+	// slack
+	channelID string
+	ts        string
 }
 
 func NewNewBugReporter(ctx controller.ControllerContext, components, schedule []string, operatorConfig config.OperatorConfig, slackGoClient *slackgo.Client, recorder events.Recorder) factory.Controller {
 	c := &NewBugReporter{
-		ctx,
-		operatorConfig,
-		components,
-		fmt.Sprintf("new-bugs-reporter/take-%s", strings.Join(components, "-")),
-		slackGoClient,
+		ControllerContext: ctx,
+		config:            operatorConfig,
+		components:        components,
+		takeBlockerID:     fmt.Sprintf("new-bugs-reporter/take-%s", strings.Join(components, "-")),
+		slackGoClient:     slackGoClient,
 	}
 
 	if err := ctx.SubscribeBlockAction(c.takeBlockerID, c.takeClicked); err != nil {
 		klog.Warning(err)
 	}
 
+	go c.updateMessages()
+
 	return factory.New().WithSync(c.sync).ResyncSchedule(schedule...).ToController("NewBugReporter", recorder)
+}
+
+func (c *NewBugReporter) updateMessages() {
+	for {
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					klog.Error(err)
+				}
+			}()
+
+			client := c.NewBugzillaClient(context.Background())
+
+			c.messagesLock.Lock()
+			defer c.messagesLock.Unlock()
+
+			// filter out old messages, older than a month
+			notTooOldMessages := make([]message, 0, len(c.messagesToWatchAndUpdate))
+			for _, m := range c.messagesToWatchAndUpdate {
+				if m.createdAt.Before(time.Now().Add(-time.Hour * 24 * 30)) {
+					continue
+				}
+				notTooOldMessages = append(notTooOldMessages, m)
+			}
+			c.messagesToWatchAndUpdate = notTooOldMessages
+
+			// reconcile with bugzilla
+			messagesToWatch := make([]message, 0, len(c.messagesToWatchAndUpdate))
+			for _, m := range c.messagesToWatchAndUpdate {
+				b, _, err := client.GetCachedBug(m.ID, "")
+				if err != nil {
+					messagesToWatch = append(messagesToWatch, m)
+					klog.Errorf("failed to get bug %d: %v", m.ID, err)
+					continue
+				}
+
+				if b.Status == "NEW" {
+					messagesToWatch = append(messagesToWatch, m)
+					continue
+				}
+
+				text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), b.AssignedTo)
+				klog.Infof("Updating message to: %v", text)
+				if _, _, _, err := c.slackGoClient.UpdateMessage(
+					m.channelID,
+					m.ts,
+					slackgo.MsgOptionBlocks(
+						slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", text, false, false), nil, nil),
+					),
+				); err != nil {
+					klog.Errorf("Failed to update message: %v", err)
+				}
+			}
+			c.messagesToWatchAndUpdate = messagesToWatch
+
+			time.Sleep(time.Hour)
+		}()
+	}
 }
 
 func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
@@ -74,6 +150,9 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		return err
 	}
 
+	c.messagesLock.Lock()
+	defer c.messagesLock.Unlock()
+
 	var errs []error
 	for _, b := range newBugs {
 		if b.ID > lastID {
@@ -81,7 +160,7 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		}
 
 		value, _ := json.Marshal(TakeValue{b.ID, b.AssignedTo})
-		slackClient.PostMessageChannel(
+		ch, ts, err := slackClient.PostMessageChannel(
 			slackgo.MsgOptionBlocks(
 				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", bugutil.FormatBugMessage(*b), false, false), nil, nil),
 				slackgo.NewActionBlock(c.takeBlockerID,
@@ -89,6 +168,9 @@ func (c *NewBugReporter) sync(ctx context.Context, syncCtx factory.SyncContext) 
 				),
 			),
 		)
+		if err == nil {
+			c.messagesToWatchAndUpdate = append(c.messagesToWatchAndUpdate, message{time.Now(), b.ID, ch, ts})
+		}
 	}
 
 	return errorutil.NewAggregate(errs)
@@ -162,7 +244,7 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 			message.ChannelID,
 			message.MessageTs,
 			slackgo.MsgOptionBlocks(
-				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn",  text, false, false), nil, nil),
+				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", text, false, false), nil, nil),
 			),
 		); err != nil {
 			slackClient.MessageChannel(fmt.Sprintf("%s took: %s", bzEmail, bugutil.FormatBugMessage(*b)))

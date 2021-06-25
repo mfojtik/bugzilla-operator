@@ -13,7 +13,7 @@ type ChannelClient interface {
 	MessageAdminChannel(message string) error
 	MessageEmail(email, message string) error
 
-	PostMessageChannel(options ...slack.MsgOption) error
+	PostMessageChannel(options ...slack.MsgOption) (channelID string, ts string, err error)
 	PostMessageAdminChannel(options ...slack.MsgOption) error
 	PostMessageEmail(email string, options ...slack.MsgOption) error
 }
@@ -45,7 +45,8 @@ func (c *slackClient) MessageChannel(message string) error {
 	if c.debug {
 		message = fmt.Sprintf("DEBUG CHANNEL #%s: %s", c.channel, message)
 	}
-	return c.PostMessageChannel(slack.MsgOptionText(message, false))
+	_, _, err := c.PostMessageChannel(slack.MsgOptionText(message, false))
+	return err
 }
 
 func (c *slackClient) MessageAdminChannel(message string) error {
@@ -62,9 +63,8 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	return c.PostMessageEmail(email, slack.MsgOptionText(message, false))
 }
 
-func (c *slackClient) PostMessageChannel(options ...slack.MsgOption) error {
-	_, _, err := c.client.PostMessage(c.channel, options...)
-	return err
+func (c *slackClient) PostMessageChannel(options ...slack.MsgOption) (channelID string, ts string, err error) {
+	return c.client.PostMessage(c.channel, options...)
 }
 
 func (c *slackClient) PostMessageAdminChannel(options ...slack.MsgOption) error {
