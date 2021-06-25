@@ -42,9 +42,6 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 	var errors []error
 
 	for name, comp := range c.config.Components {
-		if !comp.AssignFirstDeveloperCommentor {
-			continue
-		}
 		if comp.Lead == "" {
 			continue
 		}

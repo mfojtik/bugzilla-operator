@@ -33,19 +33,16 @@ func TestNewFirstTeamCommentController(t *testing.T) {
 			},
 			Components: map[string]config.Component{
 				"kube-apiserver": {
-					Lead:                          "sttts@redhat.com",
-					Developers:                    []string{"group:api-auth"},
-					AssignFirstDeveloperCommentor: true,
+					Lead:       "sttts@redhat.com",
+					Developers: []string{"group:api-auth"},
 				},
 				"api-auth": {
-					Lead:                          "sttts@redhat.com",
-					Developers:                    []string{"group:api-auth"},
-					AssignFirstDeveloperCommentor: true,
+					Lead:       "sttts@redhat.com",
+					Developers: []string{"group:api-auth"},
 				},
 				"openshift-apiserver": {
-					Lead:                          "sttts@redhat.com",
-					Developers:                    []string{"group:api-auth"},
-					AssignFirstDeveloperCommentor: true,
+					Lead:       "sttts@redhat.com",
+					Developers: []string{"group:api-auth"},
 				},
 			},
 		},
