@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,7 +67,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			syncCtx.Recorder().Warningf("BuglistFailed", err.Error())
 			continue
 		}
-		klog.Infof("%d NEW bugs found assigned to lead", len(leadAssignedBugs))
+		klog.Infof("%d NEW bugs found assigned to lead %s in compoent %s: %s", len(leadAssignedBugs), comp.Lead, name, strings.Join(toStringList(toIDList(leadAssignedBugs)), " "))
 
 	nextBug:
 		for _, b := range leadAssignedBugs {
@@ -176,6 +177,22 @@ func slackEmailListToBugzilla(emails []string) []string {
 	ret := make([]string, 0, len(emails))
 	for _, x := range emails {
 		ret = append(ret, slack.SlackEmailToBugzilla(x))
+	}
+	return ret
+}
+
+func toIDList(bugs []*bugzilla.Bug) []int {
+	ret := make([]int, 0, len(bugs))
+	for _, b := range bugs {
+		ret = append(ret, b.ID)
+	}
+	return ret
+}
+
+func toStringList(ids []int) []string {
+	ret := make([]string, 0, len(ids))
+	for _, id := range ids {
+		ret = append(ret, strconv.Itoa(id))
 	}
 	return ret
 }
