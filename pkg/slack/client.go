@@ -6,7 +6,7 @@ import (
 	"github.com/slack-go/slack"
 )
 
-var peopleWithWrongSlackEmail = map[string]string{
+var bugzillaToSlackOverrides = map[string]string{
 	"sttts@redhat.com":       "sschiman@redhat.com",
 	"rphillips@redhat.com":   "rphillip@redhat.com",
 	"adam.kaplan@redhat.com": "adkaplan@redhat.com",
@@ -30,16 +30,15 @@ type slackClient struct {
 	debug                 bool
 }
 
-func BugzillaToSlackEmail(originalEmail string) string {
-	realEmail, ok := peopleWithWrongSlackEmail[originalEmail]
-	if ok {
+func BugzillaToSlackEmail(bzEmail string) string {
+	if realEmail, ok := bugzillaToSlackOverrides[bzEmail]; ok {
 		return realEmail
 	}
-	return originalEmail
+	return bzEmail
 }
 
 func SlackEmailToBugzilla(slackEmail string) string {
-	for slack, bz := range peopleWithWrongSlackEmail {
+	for bz, slack := range bugzillaToSlackOverrides {
 		if slackEmail == slack {
 			return bz
 		}
