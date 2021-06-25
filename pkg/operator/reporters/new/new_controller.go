@@ -238,6 +238,13 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 			return
 		}
 
+		b, _, err = client.GetCachedBug(value.ID, "")
+		if err != nil {
+			slackClient.MessageChannel(fmt.Sprintf("%s took: %s", bzEmail, bugutil.FormatBugMessage(*b)))
+			klog.Errorf("Failed to get updated bug #%d: %v", value.ID, err)
+			return
+		}
+
 		text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), bzEmail)
 		klog.Infof("Updating message to: %v", text)
 		if _, _, _, err := c.slackGoClient.UpdateMessage(

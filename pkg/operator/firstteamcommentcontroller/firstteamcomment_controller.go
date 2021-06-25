@@ -212,6 +212,13 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 			return
 		}
 
+		b, _, err = client.GetCachedBug(value.ID, "")
+		if err != nil {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
+			klog.Errorf("Failed to get updated bug #%v: %v", value.ID, err)
+			return
+		}
+
 		text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), value.AssignTo)
 		klog.Infof("Updating message to: %v", text)
 		if _, _, _, err := c.slackGoClient.UpdateMessage(
