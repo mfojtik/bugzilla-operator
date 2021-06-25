@@ -24,7 +24,7 @@ func TestNewFirstTeamCommentController(t *testing.T) {
 			return cache.NewCachedBugzillaClient(bugzilla.NewClient(func() []byte {
 				return []byte(os.Getenv("BUGZILLA_TOKEN"))
 			}, "https://bugzilla.redhat.com"))
-		}, nil, nil, nil),
+		}, nil, nil, nil, nil),
 		config: config.OperatorConfig{
 			Groups: map[string]config.Group{
 				"admins":   {"mfojtik@redhat.com", "sttts@redhat.com"},

@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
+	slackgo "github.com/slack-go/slack"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,17 +15,19 @@ import (
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
+	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
 )
 
 type ControllerContext struct {
 	newBugzillaClient             func(debug bool) cache.BugzillaClient
 	slackClient, slackDebugClient slack.ChannelClient
+	slackerInstance               *slacker.Slacker
 	cmClient                      corev1client.ConfigMapInterface
 }
 
-func NewControllerContext(newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, cmClient corev1client.ConfigMapInterface) ControllerContext {
+func NewControllerContext(newBugzillaClient func(debug bool) cache.BugzillaClient, slackClient, slackDebugClient slack.ChannelClient, slackerInstance *slacker.Slacker, cmClient corev1client.ConfigMapInterface) ControllerContext {
 	return ControllerContext{
-		newBugzillaClient, slackClient, slackDebugClient, cmClient,
+		newBugzillaClient, slackClient, slackDebugClient, slackerInstance, cmClient,
 	}
 }
 
@@ -41,6 +45,17 @@ func (c *ControllerContext) SlackClient(ctx context.Context) slack.ChannelClient
 		return c.slackDebugClient
 	}
 	return c.slackClient
+}
+
+func (c *ControllerContext) SubscribeBlockAction(blockId string, f func(ctx context.Context, message *slackgo.Container, user *slackgo.User, bzEmail string, action *slackgo.BlockAction)) error {
+	if c.slackerInstance == nil {
+		return nil
+	}
+
+	return c.slackerInstance.SubscribeBlockAction(blockId, func(message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction) {
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+		f(ctx, message, user, slack.SlackEmailToBugzilla(user.Profile.Email), action)
+	})
 }
 
 func (c *ControllerContext) GetPersistentValue(ctx context.Context, key string) (string, error) {

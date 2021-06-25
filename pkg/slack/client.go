@@ -18,6 +18,10 @@ type ChannelClient interface {
 	MessageChannel(message string) error
 	MessageAdminChannel(message string) error
 	MessageEmail(email, message string) error
+
+	PostMessageChannel(options ...slack.MsgOption) error
+	PostMessageAdminChannel(options ...slack.MsgOption) error
+	PostMessageEmail(email string, options ...slack.MsgOption) error
 }
 
 type slackClient struct {
@@ -47,22 +51,34 @@ func (c *slackClient) MessageChannel(message string) error {
 	if c.debug {
 		message = fmt.Sprintf("DEBUG CHANNEL #%s: %s", c.channel, message)
 	}
-	_, _, err := c.client.PostMessage(c.channel, slack.MsgOptionText(message, false))
-	return err
+	return c.PostMessageChannel(slack.MsgOptionText(message, false))
 }
 
 func (c *slackClient) MessageAdminChannel(message string) error {
 	if c.debug {
 		message = fmt.Sprintf("DEBUG ADMIN #%s: %s", c.adminChannel, message)
 	}
-	_, _, err := c.client.PostMessage(c.adminChannel, slack.MsgOptionText(message, false))
-	return err
+	return c.PostMessageAdminChannel(slack.MsgOptionText(message, false))
 }
 
 func (c *slackClient) MessageEmail(email, message string) error {
 	if c.debug {
 		return c.MessageChannel(fmt.Sprintf("DEBUG: %q will receive:\n%s", email, message))
 	}
+	return c.PostMessageEmail(email, slack.MsgOptionText(message, false))
+}
+
+func (c *slackClient) PostMessageChannel(options ...slack.MsgOption) error {
+	_, _, err := c.client.PostMessage(c.channel, options...)
+	return err
+}
+
+func (c *slackClient) PostMessageAdminChannel(options ...slack.MsgOption) error {
+	_, _, err := c.client.PostMessage(c.adminChannel, options...)
+	return err
+}
+
+func (c *slackClient) PostMessageEmail(email string, options ...slack.MsgOption) error {
 	user, err := c.client.GetUserByEmail(BugzillaToSlackEmail(email))
 	if err != nil {
 		return err
@@ -74,7 +90,7 @@ func (c *slackClient) MessageEmail(email, message string) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = c.client.PostMessage(channel.ID, slack.MsgOptionText(message, false))
+	_, _, err = c.client.PostMessage(channel.ID, options...)
 	return err
 }
 
