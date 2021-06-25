@@ -114,7 +114,7 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 		if err != nil {
 			slackClient.PostMessageChannel(
 				slackgo.MsgOptionPostEphemeral(user.ID),
-				slackgo.MsgOptionText(fmt.Sprintf("Failed to user profile of %v: %v", user.ID, err), false),
+				slackgo.MsgOptionText(fmt.Sprintf("Failed to get user profile of %v: %v", user.ID, err), false),
 			)
 			klog.Errorf("Failed to get user profile of %v: %v", user.ID, err)
 			return

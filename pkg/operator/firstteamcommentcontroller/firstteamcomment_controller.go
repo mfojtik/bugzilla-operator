@@ -25,11 +25,16 @@ const assignBlockID = "first-team-comment-controller/accept-assignment"
 
 type FirstTeamCommentController struct {
 	controller.ControllerContext
-	config config.OperatorConfig
+	config        config.OperatorConfig
+	slackGoClient *slackgo.Client
 }
 
-func NewFirstTeamCommentController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, recorder events.Recorder) factory.Controller {
-	c := &FirstTeamCommentController{ctx, operatorConfig}
+func NewFirstTeamCommentController(ctx controller.ControllerContext, operatorConfig config.OperatorConfig, slackGoClient *slackgo.Client, recorder events.Recorder) factory.Controller {
+	c := &FirstTeamCommentController{
+		ctx,
+		operatorConfig,
+		slackGoClient,
+	}
 
 	if err := ctx.SubscribeBlockAction(assignBlockID, c.assignClicked); err != nil {
 		klog.Warning(err)
@@ -207,7 +212,17 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 			return
 		}
 
-		slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
+		text := fmt.Sprintf("%s – assigned to %s", bugutil.FormatBugMessage(*b), value.AssignTo)
+		klog.Infof("Updating message to: %v", text)
+		if _, _, _, err := c.slackGoClient.UpdateMessage(
+			message.ChannelID,
+			message.MessageTs,
+			slackgo.MsgOptionText(text, false),
+		); err != nil {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
+			klog.Errorf("Failed to update message: %v", err)
+		}
+
 	}()
 }
 
