@@ -53,7 +53,7 @@ func (c *ControllerContext) SubscribeBlockAction(blockId string, f func(ctx cont
 	}
 
 	return c.slackerInstance.SubscribeBlockAction(blockId, func(message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction) {
-		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
 		f(ctx, message, user, action)
 	})
 }
