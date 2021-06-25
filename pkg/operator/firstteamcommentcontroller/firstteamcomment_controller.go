@@ -135,9 +135,9 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			value, _ := json.Marshal(AssignValue{b.ID, comp.Lead, firstTeamCommentor})
 			slackClient.PostMessageEmail(comp.Lead,
 				slackgo.MsgOptionBlocks(
-					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", fmt.Sprintf("%s commented on https://bugzilla.redhat.com/show_bug.cgi?id=%v", firstTeamCommentor, b.ID), false, false), nil, nil),
+					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", fmt.Sprintf("%s commented on https://bugzilla.redhat.com/show_bug.cgi?id=%v as first team member.", firstTeamCommentor, b.ID), false, false), nil, nil),
 					slackgo.NewActionBlock(assignBlockID,
-						slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Assign :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
+						slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Auto-Assign :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
 					),
 				),
 			)
