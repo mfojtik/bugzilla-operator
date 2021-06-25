@@ -161,7 +161,9 @@ func (c *NewBugReporter) takeClicked(ctx context.Context, message *slackgo.Conta
 		if _, _, _, err := c.slackGoClient.UpdateMessage(
 			message.ChannelID,
 			message.MessageTs,
-			slackgo.MsgOptionText(text, false),
+			slackgo.MsgOptionBlocks(
+				slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn",  text, false, false), nil, nil),
+			),
 		); err != nil {
 			slackClient.MessageChannel(fmt.Sprintf("%s took: %s", bzEmail, bugutil.FormatBugMessage(*b)))
 			klog.Errorf("Failed to update message: %v", err)

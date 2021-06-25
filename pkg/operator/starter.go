@@ -241,7 +241,9 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 				if _, _, _, err := slackClient.UpdateMessage(
 					msg.ChannelID,
 					msg.MessageTs,
-					slackgo.MsgOptionText("Message action was executed.", false),
+					slackgo.MsgOptionBlocks(
+						slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", "~Some interaction.~ Button clicked.", false, false), nil, nil),
+					),
 				); err != nil {
 					slackClient.SendMessage(
 						msg.ChannelID,
