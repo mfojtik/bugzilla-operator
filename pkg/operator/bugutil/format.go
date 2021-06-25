@@ -69,11 +69,21 @@ func FormatPriority(priority string) string {
 }
 
 func FormatBugMessage(b bugzilla.Bug) string {
-	prio := ""
-	if len(b.Priority) > 0 && len(b.Severity) > 0 {
-		prio = fmt.Sprintf(" (%s/%s)", FormatPriority(b.Severity), FormatPriority(b.Priority))
+	prefix := ":bugzilla: "
+	switch {
+	case b.Severity == "urgent":
+		prefix = ":red-siren: *URGENT*"
 	}
-	return fmt.Sprintf("> %s [*%s*] %s%s", GetBugURL(b), b.Status, b.Summary, prio)
+	return fmt.Sprintf("%s %s [*%s*] %s – %s/%s in *%s* for *%s*/*%s*",
+		prefix,
+		GetBugURL(b),
+		b.Status,
+		b.Summary,
+		FormatPriority(b.Severity),
+		FormatPriority(b.Priority),
+		FormatComponent(b.Component),
+		FormatVersion(b.Version),
+		FormatVersion(b.TargetRelease))
 }
 
 // DegradePriority transition Priority and Severity fields one level down

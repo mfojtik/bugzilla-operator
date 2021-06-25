@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	slack "github.com/mfojtik/bugzilla-operator/pkg/slack"
-
 	"github.com/eparis/bugzilla"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -16,8 +14,10 @@ import (
 	"k8s.io/klog"
 
 	"github.com/mfojtik/bugzilla-operator/pkg/cache"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	slack "github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
 type NeedInfoController struct {
@@ -97,7 +97,7 @@ nextBug:
 				klog.Warningf("Cannot parse assignee needinfo? modification time %q of #%d: %v", f.ModificationDate, b.ID, err)
 				continue
 			} else if flagDate.After(since) {
-				slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s has set `needinfo?` *on you* on :bugzilla: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>.", f.Setter, b.ID, b.ID, b.Summary))
+				slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s has set `needinfo?` *on you* on: %s", f.Setter, bugutil.FormatBugMessage(*b)))
 				continue nextBug
 			}
 		}
@@ -135,7 +135,7 @@ nextBug:
 		}
 
 		if somebodyElsesNeedInfoRemoved {
-			slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s *provided requested info* on :bugzilla: <https://bugzilla.redhat.com/show_bug.cgi?id=%v|#%v %q>.", by, b.ID, b.ID, b.Summary))
+			slackClient.MessageEmail(b.AssignedTo, fmt.Sprintf(":parrotdad: %s *provided requested info* on: %s", by, bugutil.FormatBugMessage(*b)))
 		}
 	}
 
