@@ -162,16 +162,18 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 		return
 	}
 
-	client := c.NewBugzillaClient(ctx)
-	slackClient := c.SlackClient(ctx)
+	// we only have 3s to respond to Slack, but BZ might take longer. Do the work in a go routine
+	client := c.NewBugzillaClient(context.Background())
+	slackClient := c.SlackClient(context.Background())
+	go func() {
+		if err := client.UpdateBug(value.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: value.AssignTo}); err != nil {
+			slackClient.MessageEmail(value.Lead, fmt.Sprintf("Failed to assign https://bugzilla.redhat.com/show_bug.cgi?id=%v to %s: %v", value.ID, value.AssignTo, err))
+			klog.Errorf("Failed to assign bug #%v to %s", value.ID, value.AssignTo)
+			return
+		}
 
-	if err := client.UpdateBug(value.ID, bugzilla.BugUpdate{Status: "ASSIGNED", AssignedTo: value.AssignTo}); err != nil {
-		slackClient.MessageEmail(value.Lead, fmt.Sprintf("Failed to assign https://bugzilla.redhat.com/show_bug.cgi?id=%v to %s: %v", value.ID, value.AssignTo, err))
-		klog.Errorf("Failed to assign bug #%v to %s", value.ID, value.AssignTo)
-		return
-	}
-
-	slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
+		slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
+	}()
 }
 
 func toIDList(bugs []*bugzilla.Bug) []int {
