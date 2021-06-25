@@ -53,8 +53,8 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 
 		query := fmt.Sprintf(
 			"email1=%s&email2=%s&emailassigned_to2=1&emaillongdesc1=1&emaillongdesc3=1&emailtype1=regexp&emailtype2=equals",
-			url.QueryEscape(strings.Join(slackEmailListToBugzilla(nonLeads.List()), "|")),
-			url.QueryEscape(slack.SlackEmailToBugzilla(comp.Lead)),
+			url.QueryEscape(strings.Join(slackEmailListToBugzilla(&c.config, nonLeads.List()), "|")),
+			url.QueryEscape(slack.SlackEmailToBugzilla(&c.config, comp.Lead)),
 		)
 		klog.Warning(query)
 		leadAssignedBugs, err := client.Search(bugzilla.Query{
@@ -154,7 +154,7 @@ type AssignValue struct {
 	AssignTo string `json:"assignTo"`
 }
 
-func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message *slackgo.Container, user *slackgo.User, bzEmail string, action *slackgo.BlockAction) {
+func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction) {
 	var value AssignValue
 	if err := json.Unmarshal([]byte(action.Value), &value); err != nil {
 		klog.Warningf("cannot unmarshal value %q: %v", action.Value, err)
@@ -173,10 +173,10 @@ func (c *FirstTeamCommentController) assignClicked(ctx context.Context, message 
 	slackClient.MessageEmail(value.Lead, fmt.Sprintf("Assigned %s bug https://bugzilla.redhat.com/show_bug.cgi?id=%v.", value.AssignTo, value.ID))
 }
 
-func slackEmailListToBugzilla(emails []string) []string {
+func slackEmailListToBugzilla(config *config.OperatorConfig, emails []string) []string {
 	ret := make([]string, 0, len(emails))
 	for _, x := range emails {
-		ret = append(ret, slack.SlackEmailToBugzilla(x))
+		ret = append(ret, slack.SlackEmailToBugzilla(config, x))
 	}
 	return ret
 }

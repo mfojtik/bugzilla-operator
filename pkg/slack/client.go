@@ -3,16 +3,10 @@ package slack
 import (
 	"fmt"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
+
 	"github.com/slack-go/slack"
 )
-
-var bugzillaToSlackOverrides = map[string]string{
-	"sttts@redhat.com":       "sschiman@redhat.com",
-	"rphillips@redhat.com":   "rphillip@redhat.com",
-	"adam.kaplan@redhat.com": "adkaplan@redhat.com",
-	"wking@redhat.com":       "trking@redhat.com",
-	"sanchezl@redhat.com":    "lusanche@redhat.com",
-}
 
 type ChannelClient interface {
 	MessageChannel(message string) error
@@ -26,19 +20,20 @@ type ChannelClient interface {
 
 type slackClient struct {
 	client                *slack.Client
+	config                *config.OperatorConfig
 	channel, adminChannel string
 	debug                 bool
 }
 
-func BugzillaToSlackEmail(bzEmail string) string {
-	if realEmail, ok := bugzillaToSlackOverrides[bzEmail]; ok {
+func BugzillaToSlackEmail(config *config.OperatorConfig, bzEmail string) string {
+	if realEmail, ok := config.SlackEmails[bzEmail]; ok {
 		return realEmail
 	}
 	return bzEmail
 }
 
-func SlackEmailToBugzilla(slackEmail string) string {
-	for bz, slack := range bugzillaToSlackOverrides {
+func SlackEmailToBugzilla(config *config.OperatorConfig, slackEmail string) string {
+	for bz, slack := range config.SlackEmails {
 		if slackEmail == slack {
 			return bz
 		}
@@ -78,7 +73,7 @@ func (c *slackClient) PostMessageAdminChannel(options ...slack.MsgOption) error 
 }
 
 func (c *slackClient) PostMessageEmail(email string, options ...slack.MsgOption) error {
-	user, err := c.client.GetUserByEmail(BugzillaToSlackEmail(email))
+	user, err := c.client.GetUserByEmail(BugzillaToSlackEmail(c.config, email))
 	if err != nil {
 		return err
 	}
@@ -93,9 +88,10 @@ func (c *slackClient) PostMessageEmail(email string, options ...slack.MsgOption)
 	return err
 }
 
-func NewChannelClient(client *slack.Client, channel, adminChannel string, debug bool) ChannelClient {
+func NewChannelClient(client *slack.Client, config *config.OperatorConfig, channel, adminChannel string, debug bool) ChannelClient {
 	c := &slackClient{
 		channel:      channel,
+		config:       config,
 		adminChannel: adminChannel,
 		client:       client,
 		debug:        debug,

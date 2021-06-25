@@ -57,10 +57,10 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	slackClient := slackgo.New(cfg.Credentials.DecodedSlackToken(), slackgo.OptionDebug(true))
 
 	// This slack client is used for debugging
-	slackDebugClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, true)
+	slackDebugClient := slack.NewChannelClient(slackClient, &cfg, cfg.SlackAdminChannel, cfg.SlackAdminChannel, true)
 
 	// This slack client posts only to the admin channel
-	slackAdminClient := slack.NewChannelClient(slackClient, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
+	slackAdminClient := slack.NewChannelClient(slackClient, &cfg, cfg.SlackAdminChannel, cfg.SlackAdminChannel, false)
 
 	recorder := slack.NewRecorder(slackAdminClient, "BugzillaOperator")
 	defer func() {
@@ -151,7 +151,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 	var scheduledReports []factory.Controller
 	reportComponents := map[string][]string{}
 	for _, ar := range cfg.Schedules {
-		slackChannelClient := slack.NewChannelClient(slackClient, ar.SlackChannel, cfg.SlackAdminChannel, false)
+		slackChannelClient := slack.NewChannelClient(slackClient, &cfg, ar.SlackChannel, cfg.SlackAdminChannel, false)
 		reporterContext := controller.NewControllerContext(newBugzillaClient(&cfg, slackDebugClient), slackChannelClient, slackDebugClient, slackerInstance, cmClient)
 		for _, r := range ar.Reports {
 			if c := newScheduledReport(r, reporterContext, ar.Components, ar.When); c != nil {

@@ -47,14 +47,14 @@ func (c *ControllerContext) SlackClient(ctx context.Context) slack.ChannelClient
 	return c.slackClient
 }
 
-func (c *ControllerContext) SubscribeBlockAction(blockId string, f func(ctx context.Context, message *slackgo.Container, user *slackgo.User, bzEmail string, action *slackgo.BlockAction)) error {
+func (c *ControllerContext) SubscribeBlockAction(blockId string, f func(ctx context.Context, message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction)) error {
 	if c.slackerInstance == nil {
 		return nil
 	}
 
 	return c.slackerInstance.SubscribeBlockAction(blockId, func(message *slackgo.Container, user *slackgo.User, action *slackgo.BlockAction) {
 		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
-		f(ctx, message, user, slack.SlackEmailToBugzilla(user.Profile.Email), action)
+		f(ctx, message, user, action)
 	})
 }
 
