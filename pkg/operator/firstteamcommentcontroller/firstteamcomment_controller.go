@@ -16,6 +16,7 @@ import (
 	errutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/bugutil"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
 )
@@ -133,11 +134,12 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			}
 
 			value, _ := json.Marshal(AssignValue{b.ID, comp.Lead, firstTeamCommentor})
+			text := fmt.Sprintf("%s commented as first team member:\n\n%s", firstTeamCommentor, bugutil.FormatBugMessage(*b))
 			slackClient.PostMessageEmail(comp.Lead,
 				slackgo.MsgOptionBlocks(
-					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", fmt.Sprintf("%s commented on https://bugzilla.redhat.com/show_bug.cgi?id=%v as first team member.", firstTeamCommentor, b.ID), false, false), nil, nil),
+					slackgo.NewSectionBlock(slackgo.NewTextBlockObject("mrkdwn", text, false, false), nil, nil),
 					slackgo.NewActionBlock(assignBlockID,
-						slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Auto-Assign :bugzilla:", true, false)).WithStyle(slackgo.StylePrimary),
+						slackgo.NewButtonBlockElement("btn", string(value), slackgo.NewTextBlockObject("plain_text", "Auto-Assign", true, false)).WithStyle(slackgo.StylePrimary),
 					),
 				),
 			)

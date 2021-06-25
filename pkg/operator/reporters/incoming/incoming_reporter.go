@@ -89,14 +89,7 @@ func Report(ctx context.Context, client cache.BugzillaClient, recorder events.Re
 
 	for _, bug := range incomingBugs {
 		bugMessage := bugutil.FormatBugMessage(*bug)
-		var prefix string
-		switch {
-		case bug.Severity == "urgent":
-			prefix = ":red-siren: *URGENT*"
-		default:
-			prefix = ":bugzilla: "
-		}
-		channelReport = append(channelReport, fmt.Sprintf("> %s %s", prefix, bugMessage))
+		channelReport = append(channelReport, fmt.Sprintf("> %s", bugMessage))
 		currentReport, ok := assigneeReports[bug.AssignedTo]
 		if ok {
 			newReport := AssigneeReport{

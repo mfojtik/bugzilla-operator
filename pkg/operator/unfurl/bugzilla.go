@@ -1,7 +1,6 @@
 package unfurl
 
 import (
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -66,7 +65,7 @@ func UnfurlBugzillaLinks(bus operatorslack.EventBus, client *slack.Client, bzCli
 				}
 			}
 
-			text := fmt.Sprintf(":bugzilla: %s [*%s*] %s – %s/%s in *%s* for *%s*/*%s*", bugutil.GetBugURL(*b), b.Status, b.Summary, bugutil.FormatPriority(b.Severity), bugutil.FormatPriority(b.Priority), bugutil.FormatComponent(b.Component), bugutil.FormatVersion(b.Version), bugutil.FormatVersion(b.TargetRelease))
+			text := bugutil.FormatBugMessage(*b)
 			klog.Infof("Sending unfurl text: %s", text)
 			unfurls[l.URL] = slack.Attachment{
 				Blocks: slack.Blocks{[]slack.Block{

@@ -186,12 +186,11 @@ func Report(ctx context.Context, client cache.BugzillaClient, slack slack.Channe
 				ageString = fmt.Sprintf(", changed *%s*", humanize.Time(lastChanged))
 			}
 
-			versionString := ""
-			if v := bugutil.FormatVersion(b.TargetRelease); v != "---" {
-				versionString = fmt.Sprintf(", *%s*", v)
-			}
-
-			line := fmt.Sprintf("> %s [*%s* in *%s*%s%s] @ %s: %s", bugutil.GetBugURL(*b), b.Status, bugutil.FormatComponent(b.Component), versionString, ageString, b.AssignedTo, b.Summary)
+			line := fmt.Sprintf("> %s @ %s%s",
+				bugutil.FormatBugMessage(*b),
+				b.AssignedTo,
+				ageString,
+			)
 
 			warnings := []string{}
 			if questionable[b.ID] {
