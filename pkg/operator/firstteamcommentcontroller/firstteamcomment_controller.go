@@ -53,6 +53,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 			continue
 		}
 
+		teamIncludingLead := config.ExpandGroups(c.config.Groups, comp.Developers...)
 		nonLeads := config.ExpandGroups(c.config.Groups, comp.Developers...)
 		nonLeads = nonLeads.Delete(comp.Lead)
 
@@ -107,10 +108,7 @@ func (c *FirstTeamCommentController) sync(ctx context.Context, syncCtx factory.S
 				if strings.Contains(c.Text, "LifecycleStale") {
 					continue
 				}
-				if commentor == comp.Lead {
-					continue nextBug
-				}
-				if nonLeads.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
+				if teamIncludingLead.Has(commentor) && firstTeamCommentor == "" && b.Creator != commentor {
 					createdAt, err := time.Parse("2006-01-02T15:04:05Z", c.CreationTime)
 					if err == nil && createdAt.Before(since) {
 						// we must have seen this before and notified
