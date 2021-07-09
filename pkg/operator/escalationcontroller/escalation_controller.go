@@ -20,14 +20,12 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const EmergencyRequestMessage = `** WARNING **
+const EmergencyRequestMessage = `** A NOTE ABOUT USING URGENT **
 
-This BZ claims that this bug is of urgent severity and priority. Note that urgent priority means that you just declared emergency within engineering. 
-Engineers are asked to stop whatever they are doing, including putting important release work on hold, potentially risking the release of OCP while working on this case.
+This BZ has been set to urgent severity and priority. When a BZ is marked urgent priority Engineers are asked to stop whatever they are doing, putting everything else on hold.
+Please be prepared to have reasonable justification ready to discuss, and ensure your own and engineering management are aware and agree this BZ is urgent. Keep in mind, urgent bugs are very expensive and have maximal management visibility.
 
-Be prepared to have a good justification ready and your own and engineering management are aware and has approved this. Urgent bugs are very expensive and have maximal management visibility.
-
-NOTE: This bug was assigned to engineering manager with severity reset to *unspecified* until the emergency is vetted and confirmed. Please do not manually override the severity.
+NOTE: This bug was automatically assigned to an engineering manager with the severity reset to *unspecified* until the emergency is vetted and confirmed. Please do not manually override the severity.
 `
 
 type escalation struct {
