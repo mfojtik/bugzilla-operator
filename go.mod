@@ -3,6 +3,7 @@ module github.com/mfojtik/bugzilla-operator
 go 1.14
 
 require (
+	github.com/andygrunwald/go-jira v1.14.0
 	github.com/boltdb/bolt v1.3.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
@@ -22,7 +23,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/zpnk/go-bitly v0.0.0-20170609220507-2da97f724d1d
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.3

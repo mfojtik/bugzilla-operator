@@ -9,14 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/escalationcontroller"
-
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/ideas"
-
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/tagcontroller"
-
-	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
-
+	"github.com/andygrunwald/go-jira"
 	"github.com/eparis/bugzilla"
 	"github.com/google/go-github/v33/github"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -30,7 +23,9 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/closecontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/config"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/controller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/escalationcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/firstteamcommentcontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/ideas"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/needinfocontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/blockers"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/closed"
@@ -38,9 +33,11 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/incoming"
 	newreporter "github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/new"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/reassign"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/stalepost"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/reporters/upcomingsprint"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/resetcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/stalecontroller"
+	"github.com/mfojtik/bugzilla-operator/pkg/operator/tagcontroller"
 	"github.com/mfojtik/bugzilla-operator/pkg/operator/unfurl"
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 	"github.com/mfojtik/bugzilla-operator/pkg/slacker"
@@ -75,11 +72,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Description: "Say something.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			msg := req.StringParam("message", "")
-			w.Reply(msg)
+			w.Reply(msg, slacker.WithThreadReply(true))
 		},
 	})
 	slackerInstance.DefaultCommand(func(req slacker.Request, w slacker.ResponseWriter) {
-		w.Reply("Unknown command")
+		w.Reply("Unknown command", slacker.WithThreadReply(true))
 	})
 
 	recorder.Eventf("OperatorRestarted", "Bugzilla Operator Started\n")
@@ -89,6 +86,13 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		return err
 	}
 	if err := unfurl.UnfurlGithubLinks(slackerInstance, slackClient, github.NewClient(nil)); err != nil {
+		return err
+	}
+	jiraClient, err := jira.NewClient(nil, "https://issues.redhat.com/")
+	if err != nil {
+		return err
+	}
+	if err := unfurl.UnfurlJiraLinks(slackerInstance, slackClient, jiraClient); err != nil {
 		return err
 	}
 
@@ -179,7 +183,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			if !ok {
 				c, ok = triggerableReports[job]
 				if !ok {
-					w.Reply(fmt.Sprintf("Unknown job %q", job))
+					w.Reply(fmt.Sprintf("Unknown job %q", job), slacker.WithThreadReply(true))
 					return
 				}
 			}
@@ -306,7 +310,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 			report, ok := reports[job]
 			if !ok {
-				w.Reply(fmt.Sprintf("Unknown report %q", job))
+				w.Reply(fmt.Sprintf("Unknown report %q", job), slacker.WithThreadReply(true))
 				return
 			}
 
@@ -326,7 +330,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					klog.Error(err)
 				}
 			} else {
-				w.Reply(reply)
+				w.Reply(reply, slacker.WithThreadReply(true))
 			}
 		},
 	})
