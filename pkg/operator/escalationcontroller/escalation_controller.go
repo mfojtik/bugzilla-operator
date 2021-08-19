@@ -20,12 +20,24 @@ import (
 	"github.com/mfojtik/bugzilla-operator/pkg/slack"
 )
 
-const EmergencyRequestMessage = `** A NOTE ABOUT USING URGENT **
+const urgentRequestMessage = `** A NOTE ABOUT USING URGENT **
 
 This BZ has been set to urgent severity and priority. When a BZ is marked urgent priority Engineers are asked to stop whatever they are doing, putting everything else on hold.
 Please be prepared to have reasonable justification ready to discuss, and ensure your own and engineering management are aware and agree this BZ is urgent. Keep in mind, urgent bugs are very expensive and have maximal management visibility.
 
 NOTE: This bug was automatically assigned to an engineering manager with the severity reset to *unspecified* until the emergency is vetted and confirmed. Please do not manually override the severity.
+
+** INFORMATION REQUIRED **
+
+Please answer these questions before escalation to engineering:
+
+1. Has a link to must-gather output been provided in this BZ? We cannot work without. If must-gather fails to run, attach all relevant logs and provide the error message of must-gather.
+2. Give the output of "oc get clusteroperators -o yaml".
+3. In case of degraded/unavailable operators, have all their logs and the logs of the operands been analyzed [yes/no]
+4. List the top 5 relevant errors from the logs of the operators and operands in (3).
+5. Order the list of degraded/unavailable operators according to which is likely the cause of the failure of the other, root-cause at the top.
+6. Explain why (5) is likely the right order and list the information used for that assessment.
+7. Explain why Engineering is necessary to make progress.
 `
 
 type escalation struct {
@@ -85,11 +97,14 @@ func (c *EscalationController) sync(ctx context.Context, context factory.SyncCon
 			update[b.ID] = bugzilla.BugUpdate{
 				Whiteboard: withKeyword(b.Whiteboard, "EmergencyRequest"),
 				Comment: &bugzilla.BugComment{
-					Body: EmergencyRequestMessage,
+					Body: urgentRequestMessage,
 				},
 				AssignedTo: c.config.Components.ManagerFor(b.Component[0], b.AssignedTo),
 				Priority:   "unspecified",
 				Severity:   "unspecified",
+				Flags: []bugzilla.FlagChange{
+					{Name: "needinfo", Status: "?", Requestee: b.Creator},
+				},
 			}
 		}
 	}
