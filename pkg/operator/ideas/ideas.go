@@ -30,10 +30,6 @@ type IdeaList struct {
 	Items []Idea `json:"items"`
 }
 
-func replyInThread(r *slacker.ReplyDefaults) {
-	r.ThreadResponse = true
-}
-
 func New(ctx controller.ControllerContext) *Controller {
 	return &Controller{ctx: ctx}
 }
@@ -104,21 +100,21 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			description := req.StringParam("team", "")
 			if len(description) == 0 {
-				w.Reply(":warning: Description must be specified", replyInThread)
+				w.Reply(":warning: Description must be specified", slacker.WithThreadReply(true))
 				return
 			}
 
 			idea, err := parseIdea(description)
 			if err != nil {
-				w.Reply(fmt.Sprintf(":warning: %v", err), replyInThread)
+				w.Reply(fmt.Sprintf(":warning: %v", err), slacker.WithThreadReply(true))
 				return
 			}
 			idea.From = req.Event().User
 			if err := c.addToList(context.TODO(), idea); err != nil {
-				w.Reply(fmt.Sprintf(":warning: unable to persist idea: %v", err), replyInThread)
+				w.Reply(fmt.Sprintf(":warning: unable to persist idea: %v", err), slacker.WithThreadReply(true))
 				return
 			}
-			w.Reply(fmt.Sprintf(":good_idea: idea was added to team %s list", idea.Team))
+			w.Reply(fmt.Sprintf(":good_idea: idea was added to team %s list", idea.Team), slacker.WithThreadReply(true))
 			return
 		},
 	})
@@ -130,7 +126,7 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 			listMessage := []string{}
 			curr := c.getList(context.TODO())
 			if curr == nil {
-				w.Reply(":sadpanda: no ideas recorded")
+				w.Reply(":sadpanda: no ideas recorded", slacker.WithThreadReply(true))
 				return
 			}
 			for _, i := range curr.Items {
@@ -141,11 +137,11 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 				listMessage = append(listMessage, fmt.Sprintf("> [%s] %s: %s (_%s_)", humanize.Time(i.Timestamp), i.From, i.Title, i.Clarification))
 			}
 			if len(listMessage) == 0 {
-				w.Reply(":sadpanda: no ideas recorded")
+				w.Reply(":sadpanda: no ideas recorded", slacker.WithThreadReply(true))
 				return
 			}
 			result := append([]string{"Ideas Recorded"}, listMessage...)
-			w.Reply(fmt.Sprintf("%s", strings.Join(result, "\n")))
+			w.Reply(fmt.Sprintf("%s", strings.Join(result, "\n")), slacker.WithThreadReply(true))
 		},
 	})
 
@@ -154,10 +150,10 @@ func (c *Controller) AddCommands(s *slacker.Slacker) {
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			teamName := req.StringParam("team", "")
 			if err := c.resetListForTeam(context.TODO(), teamName); err != nil {
-				w.Reply(fmt.Sprintf(":warning: unable to reset ideas for team %q: %v", teamName, err), replyInThread)
+				w.Reply(fmt.Sprintf(":warning: unable to reset ideas for team %q: %v", teamName, err), slacker.WithThreadReply(true))
 				return
 			}
-			w.Reply(fmt.Sprintf(":sweepclean: ideas for team %q successfully reset", teamName))
+			w.Reply(fmt.Sprintf(":sweepclean: ideas for team %q successfully reset", teamName), slacker.WithThreadReply(true))
 		},
 	})
 }

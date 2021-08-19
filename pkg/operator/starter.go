@@ -75,11 +75,11 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 		Description: "Say something.",
 		Handler: func(req slacker.Request, w slacker.ResponseWriter) {
 			msg := req.StringParam("message", "")
-			w.Reply(msg)
+			w.Reply(msg, slacker.WithThreadReply(true))
 		},
 	})
 	slackerInstance.DefaultCommand(func(req slacker.Request, w slacker.ResponseWriter) {
-		w.Reply("Unknown command")
+		w.Reply("Unknown command", slacker.WithThreadReply(true))
 	})
 
 	recorder.Eventf("OperatorRestarted", "Bugzilla Operator Started\n")
@@ -179,7 +179,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 			if !ok {
 				c, ok = triggerableReports[job]
 				if !ok {
-					w.Reply(fmt.Sprintf("Unknown job %q", job))
+					w.Reply(fmt.Sprintf("Unknown job %q", job), slacker.WithThreadReply(true))
 					return
 				}
 			}
@@ -306,7 +306,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 
 			report, ok := reports[job]
 			if !ok {
-				w.Reply(fmt.Sprintf("Unknown report %q", job))
+				w.Reply(fmt.Sprintf("Unknown report %q", job), slacker.WithThreadReply(true))
 				return
 			}
 
@@ -326,7 +326,7 @@ func Run(ctx context.Context, cfg config.OperatorConfig) error {
 					klog.Error(err)
 				}
 			} else {
-				w.Reply(reply)
+				w.Reply(reply, slacker.WithThreadReply(true))
 			}
 		},
 	})
