@@ -96,6 +96,8 @@ type OperatorConfig struct {
 
 	DisabledControllers []string `yaml:"disabledControllers"`
 
+	TeamStructureCSVFile string `yaml:"teamStructureCSVFile"`
+
 	CachePath string `yaml:"cachePath"`
 }
 
